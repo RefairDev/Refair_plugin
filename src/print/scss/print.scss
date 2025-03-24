@@ -1,0 +1,152 @@
+@page{
+	size:portrait;
+	footer: html_defaultFooter;
+	margin-bottom: 100px;
+}
+
+@page listing {
+    size: landscape;
+	margin-bottom: 100px;
+}
+
+.deposit-inventory{
+	page: listing;
+}
+
+body{
+	color: #367857;
+}
+
+.wrapper-thumbnail{
+	background-color: #87a697;
+	overflow:hidden;
+}
+
+.order-ref{
+	font-size: 1rem;
+}
+h1{
+	font-size:3rem;
+}
+
+h2{
+	page-break-before: always;
+}
+
+.title-cell{
+	padding:1.5rem;
+	color: #367857;
+}
+
+.qty-header-cell, .avail-header-cell {
+	font-size: 1.5rem;
+}
+
+.qty-cell, .avail-cell{
+	font-size: 1.5rem;
+	padding:1.5rem;
+	color: #367857;
+}
+
+.product-title{
+	font-size: 4rem;
+}
+.family, .category{
+	font-size:3rem;
+}
+
+table{
+	border-collapse: collapse;
+	margin-bottom: 1.5rem;
+}
+.header-table{
+	width:100%;
+}
+
+.row{
+	width: 100%;
+}
+.col-12{
+	width:100%;
+}
+
+.col-6{
+	width:50%;
+}
+
+th{
+	background-color:#87a697;
+	color: white;
+	padding-top:0.5rem;
+	padding-bottom:0.5rem;
+	border:1px solid #367857;
+	font-size: 1.2rem;
+}
+
+td{
+	border:1px solid #367857;
+	padding: 0.5rem;
+}
+
+.fam-title{
+	background-color: #c1d7cd;
+}
+.cat-title{
+	background-color: #c1d7cd;
+}
+
+.logo-cell{
+	background-color:#87a697;
+	text-align:center;
+	padding-top:1.25rem;
+	padding-bottom:1.25rem;
+	img{
+		height: 2rem;
+	}
+}
+.sub-title-cell{
+	font-size: 2rem; 
+	text-align: center;
+	color: #367857;
+}
+.img-cell{
+	padding:0;
+}
+.desc-cell{
+	padding: 1rem;
+}
+
+.detail-cell{
+	border:1px solid #367857;
+}
+
+th.detail-cell{
+	width:20%;
+	text-align: left;
+	padding-left: 1rem;
+	
+}
+
+.variable-row td{
+	background-color:#a9c5b8;
+}
+
+.variation-row td{
+	background-color:#d6e6de;
+}
+
+
+.footer-table td{
+	font-size:0.8rem;
+}
+
+.ref-cell{
+	font-size:0.8rem;
+}
+
+th.materials-header{
+	font-size:1.05rem;
+	padding-top:0.25rem;
+	padding-bottom:0.25rem;
+
+}

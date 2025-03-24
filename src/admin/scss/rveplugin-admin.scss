@@ -1,0 +1,41 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+ 
+
+.no-close .ui-dialog-titlebar-close {
+    display: none;
+}
+  
+.ui-dialog.location-result{
+    background: #fff;
+    border: 1px solid #A5A5A5;
+    z-index: 99;
+    .ui-dialog-titlebar{
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+    }
+
+    .ui-dialog-content{
+        padding: 0.5rem 1rem;
+    }
+
+    .ui-dialog-buttonpane{
+        padding: 0.5rem 1rem;
+        text-align: right;
+    }
+}
+
+.page-title-action.disabled, .erase-products.disabled  {
+        color: #a7aaad !important;
+        border-color: #dcdcde !important;
+        background: #f6f7f7 !important;
+        box-shadow: none !important;
+        cursor: default;
+        transform: none !important
+}
+
+.availability_date_field input[type=date]{
+    float:left;
+}

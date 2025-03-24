@@ -1,0 +1,44 @@
+{
+  "name": "r_ve_plugin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Thomas Vias",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "10.2.4",
+    "browser-sync": "2.26.14",
+    "cssnano": "4.1.10",
+    "del": "6.0.0",
+    "gulp": "^4.0.2",
+    "gulp-composer": "^0.4.5",
+    "gulp-concat": "^2.6.1",
+    "gulp-debug": "^4.0.0",
+    "gulp-deporder": "^1.1.0",
+    "gulp-imagemin": "^4.1.0",
+    "gulp-newer": "^1.4.0",
+    "gulp-postcss": "9.0.0",
+    "postcss": "8.2.6",
+    "gulp-sass": "5.1.0",
+    "gulp-strip-debug": "^3.0.0",
+    "gulp-uglify": "^3.0.1",
+    "gulp-util": "^3.0.8",    
+    "gulp-zip": "6.1.0",
+    "postcss-sort-media-queries": "3.2.3",
+    "postcss-assets": "^5.0.0",
+    "sass": "1.70.0"
+  },
+  "dependencies": {
+    "leaflet": "1.7.1",
+    "select2": "4.0.3"
+  },
+  "repository": {
+    "type": "git"
+  },
+  "browserslist": [
+    "defaults"
+  ]
+}

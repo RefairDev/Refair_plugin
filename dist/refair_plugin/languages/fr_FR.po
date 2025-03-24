@@ -1,0 +1,221 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2022-02-12 13:20+0100\n"
+"PO-Revision-Date: 2022-02-12 13:21+0100\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: fr_FR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Poedit 3.0.1\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-KeywordsList: __\n"
+"X-Poedit-SearchPath-0: .\n"
+
+#: admin/class-refairplugin-admin.php:136
+msgid "Afin de lister les matériaux ceux-ci sont liés à un gisement"
+msgstr "Afin de lister les matériaux ceux-ci sont liés à un gisement"
+
+#: admin/class-refairplugin-admin.php:151 admin/class-refairplugin-admin.php:197
+msgid "Emplacement"
+msgstr "Emplacement"
+
+#: admin/class-refairplugin-admin.php:152 admin/class-refairplugin-admin.php:199
+msgid "emplacement du matériau"
+msgstr "emplacement du matériau"
+
+#: admin/class-refairplugin-admin.php:153 admin/class-refairplugin-admin.php:200
+msgid "Emplacement où l'on peut trouver le matériaux"
+msgstr "Emplacement où l'on peut trouver le matériaux"
+
+#: admin/class-refairplugin-admin.php:163 admin/class-refairplugin-admin.php:232
+msgid "Remarques supplémentaires"
+msgstr "Remarques supplémentaires"
+
+#: admin/class-refairplugin-admin.php:165 admin/class-refairplugin-admin.php:235
+msgid "Remarques internes supplémentaires"
+msgstr "Remarques internes supplémentaires"
+
+#: admin/class-refairplugin-admin.php:166 admin/class-refairplugin-admin.php:237
+msgid "<br>Information supplémentaires affichées uniquement sur le Back-office"
+msgstr "<br>Information supplémentaires affichées uniquement sur le Back-office"
+
+#: admin/class-refairplugin-admin.php:185
+msgid "Designation"
+msgstr "Designation"
+
+#: admin/class-refairplugin-admin.php:187
+msgid "désignation du matériau"
+msgstr "désignation du matériau"
+
+#: admin/class-refairplugin-admin.php:188
+msgid "Désignation du matériau"
+msgstr "Désignation du matériau"
+
+#: admin/class-refairplugin-admin.php:208
+msgid "État"
+msgstr "État"
+
+#: admin/class-refairplugin-admin.php:210 admin/class-refairplugin-admin.php:211
+msgid "État du matériau"
+msgstr "État du matériau"
+
+#: admin/class-refairplugin-admin.php:219
+msgid "Matériau"
+msgstr "Matériau"
+
+#: admin/class-refairplugin-admin.php:221 admin/class-refairplugin-admin.php:222
+msgid "Matériau du matériau"
+msgstr "Matériau du matériau"
+
+#: admin/class-refairplugin-ui-customization.php:138
+msgid "Download Sheet"
+msgstr "Télécharger la fiche"
+
+#: admin/class-refairplugin-ui-customization.php:189
+msgid "Montrer tous les gisements"
+msgstr "Montrer tous les gisements"
+
+#: admin/class-refairplugin-ui-customization.php:251
+msgid "Download archive"
+msgstr "Télécharger l'archive"
+
+#: public/class-refairplugin-public.php:170
+msgid "Search "
+msgstr "Rechercher "
+
+#: public/class-refairplugin-public.php:171
+msgid "Popular "
+msgstr "Populaires "
+
+#: public/class-refairplugin-public.php:172
+msgid "All "
+msgstr "Tous "
+
+#: public/class-refairplugin-public.php:175
+msgid "Edit "
+msgstr "Éditer "
+
+#: public/class-refairplugin-public.php:176
+msgid "Update "
+msgstr "Mettre à jour "
+
+#: public/class-refairplugin-public.php:177
+msgid "Add New "
+msgstr "Ajouter nouveau "
+
+#: public/class-refairplugin-public.php:178
+msgid "New "
+msgstr "Nouveau "
+
+#: public/class-refairplugin-public.php:178
+msgid " Name"
+msgstr " Nom"
+
+#: public/class-refairplugin-public.php:179
+msgid "Separate writers with commas"
+msgstr "Séparer les ecrivains avec des virgules"
+
+#: public/class-refairplugin-public.php:180
+msgid "Add or remove"
+msgstr "Ajouter ou retirer"
+
+#: public/class-refairplugin-public.php:181
+msgid "Choose from the most used "
+msgstr "Choisir parmi les plus utilisés "
+
+#: public/class-refairplugin-public.php:182
+msgid "No "
+msgstr "Aucun "
+
+#: public/class-refairplugin-public.php:182
+msgid " found."
+msgstr " trouvé."
+
+#: public/class-refairplugin-public.php:215
+msgid "Ajouter"
+msgstr "Ajouter"
+
+#: public/class-refairplugin-public.php:216
+msgid "Ajouter un nouveau "
+msgstr "Ajouter un nouveau "
+
+#: public/class-refairplugin-public.php:217
+msgid "Éditer"
+msgstr "Éditer"
+
+#: public/class-refairplugin-public.php:218
+msgid "Éditer un"
+msgstr "Éditer un"
+
+#: public/class-refairplugin-public.php:219
+msgid "Nouvel "
+msgstr "Nouvel "
+
+#: public/class-refairplugin-public.php:220
+msgid "Visualiser"
+msgstr "Visualiser"
+
+#: public/class-refairplugin-public.php:221
+msgid "Visualiser le"
+msgstr "Visualiser le"
+
+#: public/class-refairplugin-public.php:222
+msgid "Recherches des"
+msgstr "Recherches des"
+
+#: public/class-refairplugin-public.php:223
+#, php-format
+msgid "Aucun %s trouvé"
+msgstr "Aucun %s trouvé"
+
+#: public/class-refairplugin-public.php:224
+#, php-format
+msgid "Aucun %s trouvé dans la corbeille"
+msgstr "Aucun %s trouvé dans la corbeille"
+
+#: public/class-refairplugin-public.php:728 public/class-refairplugin-public.php:752
+#: public/class-refairplugin-public.php:849
+msgid "Material"
+msgstr "Materiau"
+
+#: public/class-refairplugin-public.php:775
+msgid "Deposits"
+msgstr "Gisements"
+
+#: public/class-refairplugin-public.php:818
+msgid "Download materials sheets"
+msgstr "Télécharger les fiches matériaux"
+
+#: public/class-refairplugin-public.php:837
+msgid "Expression_of_interest"
+msgstr "Manifestation_d_interet"
+
+#: public/class-refairplugin-public.php:910
+msgid "Expression_of_Interest"
+msgstr "Manifestation_d_Interet"
+
+#: public/class-refairplugin-public.php:997
+msgid "Download"
+msgstr "Télécharger"
+
+#: public/class-refairplugin-public.php:1006
+msgid "The order ID."
+msgstr "La référence de manifestation d'intérêt."
+
+#: public/class-refairplugin-public.php:1041
+msgid "The deposit ID."
+msgstr "La référence de site."
+
+#: public/class-refairplugin-public.php:1082
+#: public/class-refairplugin-public.php:1146
+msgid "Deposit"
+msgstr "Site"
+
+#: public/class-refairplugin-public.php:1166
+#: public/class-refairplugin-public.php:1178
+msgid "Examinating"
+msgstr "Examen en cours"
