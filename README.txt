@@ -1,4 +1,4 @@
-=== Plugin Name ===
+=== Refair Plugin ===
 Tags: refair, custom post types, document generation
 Requires at least: 6.7.2
 Tested up to: 6.7.2
