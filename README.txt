@@ -2,7 +2,7 @@
 Tags: refair, custom post types, document generation
 Requires at least: 6.7.2
 Tested up to: 6.7.2
-Stable tag: 0.8
+Stable tag: N\A
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -27,8 +27,13 @@ This plugin is used as a complementary part of the REFAIR Theme. It provide cust
 	* Archive of deposit with deposit summary and all linked material sheets
 	* Archive of all orders linked to a deposit.
 
-== Installation ==
+== Usage ==
 
+* Prerequisite
+WordPress: > 6.7.2
+Woocommerce: > 6.5.2
+
+* Install
 1. Upload `refairplugin` folder to the `/wp-content/plugins/` directory
 2. Activate the plugin through the 'Plugins' menu in WordPress
 3. Set your API google key in refairplugin settings
