@@ -86,7 +86,7 @@ class Refairplugin_Extensible_Meta_View extends Refairplugin_Meta_View {
 				?>
 			<div id="<?php echo esc_attr( $data['id'] . '-' . $idx ); ?>_block">
 				<label for="<?php echo esc_attr( $data['id'] . '-' . $idx ); ?>"><?php echo wp_kses_post( ( $idx + 1 ) . '. ' ); ?></label>
-				<?php echo wp_kses( apply_filters( 'refairplugin_renderview_' . $child_meta_arr['type'], $view_content, $child_meta_arr, $meta_value ), wp_kses_allowed_html( 'strip' ) ); ?>                
+				<?php echo wp_kses( apply_filters( 'refairplugin_renderview_' . $child_meta_arr['type'], $view_content, $child_meta_arr, $meta_value ), wp_kses_allowed_html( 'post' ) ); ?>                
 			</div>
 			<?php endfor; ?>
 			

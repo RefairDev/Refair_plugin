@@ -86,3 +86,25 @@ function run_refairplugin() {
 }
 
 add_action( 'woocommerce_loaded', 'run_refairplugin' );
+
+
+// Hook into the 'admin_notices' action to display a warning if WooCommerce is not active.
+add_action( 'admin_notices', 'check_woocommerce_activation' );
+
+/**
+ * Check Woocommerce plugin activaition and warn if not found.
+ *
+ * @return void
+ */
+function check_woocommerce_activation() {
+	// Check if WooCommerce is active.
+	if ( ! is_plugin_active( 'woocommerce/woocommerce.php' ) ) {
+		// Display an admin notice.
+		echo '<div class="notice notice-error"><p><strong>' . __( 'Warning', 'refairplugin' ) . ':</strong> ' . __( 'WooCommerce is not activated. Please activate WooCommerce to use this plugin', 'refairplugin' ) . '</p></div>';
+	}
+}
+
+// Ensure the 'is_plugin_active' function is available.
+if ( ! function_exists( 'is_plugin_active' ) ) {
+	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+}

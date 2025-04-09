@@ -76,7 +76,7 @@ class Refairplugin_Term_Meta_View extends Refairplugin_Meta_View {
 		<?php
 		foreach ( $taxonomies as $current_taxo ) {
 			?>
-			<optgroup label="<?php echo wp_kses( $current_taxo->label, wp_kses_allowed_html( 'strip' ) ); ?>">
+			<optgroup label="<?php echo wp_kses( $current_taxo->label, wp_kses_allowed_html( 'post' ) ); ?>">
 			<?php
 			$terms = get_terms(
 				array(
@@ -92,7 +92,7 @@ class Refairplugin_Term_Meta_View extends Refairplugin_Meta_View {
 					$selected = ' selected ';
 				}
 				?>
-				<option value="<?php echo wp_kses( $term->term_taxonomy_id, wp_kses_allowed_html( 'strip' ) ); ?>"<?php echo wp_kses( $selected, wp_kses_allowed_html( 'strip' ) ); ?>><?php echo wp_kses( $term->name, wp_kses_allowed_html( 'strip' ) ); ?></option>
+				<option value="<?php echo wp_kses( $term->term_taxonomy_id, wp_kses_allowed_html( 'post' ) ); ?>"<?php echo wp_kses( $selected, wp_kses_allowed_html( 'post' ) ); ?>><?php echo wp_kses( $term->name, wp_kses_allowed_html( 'post' ) ); ?></option>
 				<?php
 			}
 			?>
