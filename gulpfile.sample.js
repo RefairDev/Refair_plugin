@@ -172,7 +172,8 @@ function jsonCopy () {
 
 function composer_libs(cb){
 	composer({
-		"working-dir": destFolder
+		"working-dir": destFolder,
+		"async": false
   });
   cb();
 };
@@ -386,7 +387,7 @@ function watch(cb){
 };
 
 function zipAll(){
-	return gulp.src(dir.dist)
+	return gulp.src(dir.dist+'/**')
 		  .pipe(gulpzip( devName + '.zip' ) )
 		  .pipe(gulp.dest('dist'))
   }
@@ -405,9 +406,8 @@ exports.dist = gulp.series(
 					gulp.parallel(fontsCopy, phpCopy),
 					gulp.parallel(imagesCopy),
 					gulp.parallel(css_public_task, css_admin_Task,css_print_Task),
-					gulp.parallel(jsonCopy, composer_libs),  
 					//gulp.parallel(jsonCopy, composer_libs,others),  
-					gulp.parallel(leafletCopy,select2Copy,others,langCopy),
+					gulp.parallel(gulp.series(jsonCopy, composer_libs),leafletCopy,select2Copy,others,langCopy),
 					gulp.parallel(js_admin_prod, js_public_prod),
 					zipAll);
 
@@ -415,12 +415,11 @@ exports.dist = gulp.series(
 exports.default = gulp.series(
 					startupWrapper,
 					setDevEnv,
-                    gulp.parallel(fontsCopy, phpCopy),
-                    gulp.parallel(imagesCopy),
-                    gulp.parallel(css_public_task, css_admin_Task,css_print_Task),
-                    gulp.parallel(leafletCopy,select2Copy,others,langCopy),
-                    gulp.parallel(jsonCopy, composer_libs),
+					gulp.parallel(fontsCopy, phpCopy),
+					gulp.parallel(imagesCopy),
+					gulp.parallel(css_public_task, css_admin_Task,css_print_Task),
+					gulp.parallel(gulp.series(jsonCopy, composer_libs),leafletCopy,select2Copy,others,langCopy),
 					//gulp.parallel(jsonCopy, composer_libs,others),
-                    gulp.parallel(js_admin, js_public),
-                    gulp.parallel(watch, browsersyncManagement)
-                    );
+					gulp.parallel(js_admin, js_public),
+					gulp.parallel(watch, browsersyncManagement)
+					);
