@@ -49,6 +49,11 @@ class Refairplugin_Pdf_Generator_Worker extends WP_Background_Process {
 			$inputs = new Refairplugin_Files_Generator_Input( $args );
 			$this->write_log( 'PDF generation :' . $inputs->get_pdf_filename() );
 			( new Refairplugin_Pdf_Generator( $inputs ) )->generate_pdf();
+
+			if ( array_key_exists( 'complete_callback', $args ) && ! empty( $args['complete_callback'] ) ) {
+				$this->write_log( 'callback:' . print_r( $args['complete_callback'], true ) . '| args: ' . print_r( $args['id'], true ) );
+				call_user_func( $args['complete_callback'],  $args['id'] );
+			}
 		} catch ( Throwable $t ) {
 			$this->write_log( 'PDF generation error:' . $t->getMessage() );
 			return $item;

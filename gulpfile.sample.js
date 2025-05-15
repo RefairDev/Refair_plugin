@@ -110,7 +110,7 @@ srcNode			: 'node_modules/',
 
 //copy other vendors files
 function others (){
-  return gulp.src([vendors.src+'**/*', '!' + bootstrap.src +'js/bootstrap.bundle.min.js'])
+  return gulp.src([vendors.src+'**/*'])
     .pipe(gulp.dest(vendors.build))
     .pipe(browsersync ? browsersync.reload({ stream: true }) : gutil.noop());
 };

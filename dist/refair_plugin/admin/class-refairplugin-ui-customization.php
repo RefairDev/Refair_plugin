@@ -837,6 +837,18 @@ class Refairplugin_UI_Customization {
 	}
 
 	/**
+	 * Add deposit bulk action entry to regenerate archive
+	 *
+	 * @param  array $bulk_actions Array of bulk actions availables.
+	 * @return array Modified bulk actions.
+	 */
+	public function add_deposit_regenerate_archive_bulk_action( $bulk_actions ) {
+		$bulk_actions['regenerate-archive'] = __( 'Regenerate Archive', 'refair-plugin' );
+		return $bulk_actions;
+	}
+
+
+	/**
 	 * Push $in element after a $pos element in $src array.
 	 *
 	 * @param array  $src source array.
