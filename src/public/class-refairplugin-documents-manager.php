@@ -387,6 +387,16 @@ class Refairplugin_Documents_Manager {
 			return;
 		}
 
+		$this->generate_deposit_pdf( $post_id );
+	}
+
+	/**
+	 * Pdf generation of a deposit.
+	 *
+	 * @param  int $post_id id of the currently saved deposit.
+	 * @return void
+	 */
+	protected function generate_deposit_pdf( $post_id, $complete_callback = null ) {
 		if ( ( isset( $post_id ) )
 		&& false !== get_post_status( intval( $post_id ) )
 		&& 'auto-draft' !== get_post_status( intval( $post_id ) )
@@ -399,6 +409,7 @@ class Refairplugin_Documents_Manager {
 				'folder_name'        => 'deposits',
 				'template_part_name' => 'deposit',
 				'orientation'        => 'L',
+				'complete_callback'  => $complete_callback,
 			);
 
 			$ref = get_post_meta( $post_id, 'reference', true );
@@ -486,13 +497,13 @@ class Refairplugin_Documents_Manager {
 	 * @param  array $files_to_zip list of filespath to zip.
 	 * @return boolean Returned status true on success false on error.
 	 */
-	protected function refair_zip_files( $zip_filename_data, $files_to_zip ) {
+	public static function refair_zip_files( $zip_filename_data, $files_to_zip ) {
 
 		$zip    = new ZipArchive();
 		$status = true;
 		$status = $zip->open( $zip_filename_data['full_path'], ZipArchive::CREATE | ZipArchive::OVERWRITE );
 
-		$this->write_log( 'Zipfile: ' . $zip_filename_data['full_path'] );
+		self::write_log( 'Zipfile: ' . $zip_filename_data['full_path'] );
 
 		if ( DIRECTORY_SEPARATOR === '/' ) {
 			$from = '\\';
@@ -511,22 +522,22 @@ class Refairplugin_Documents_Manager {
 					if ( file_exists( $full_path ) ) {
 						$status = $zip->addFile( str_replace( $from, $to, $file['path_name'] ), $file['filename'] );
 						if ( false === $status ) {
-							$this->write_log( 'Zipfile: ERROR on add ' . $file['filename'] );
+							self::write_log( 'Zipfile: ERROR on add ' . $file['filename'] );
 						}
 					} else {
-						$this->write_log( "File to zip don't exist " . $full_path );
+						self::write_log( "File to zip don't exist " . $full_path );
 					}
 				}
 			} catch ( Throwable $t ) {
 				$msg = $t->getMessage();
 			}
 			if ( false === $status ) {
-				$this->write_log( 'Zipfile: zip file erroneous before close' );
+				self::write_log( 'Zipfile: zip file erroneous before close' );
 			}
 			$status = $zip->close();
 
 		} else {
-			$this->write_log( 'Error on open/create global zip file ' . $zip_filename_data['full_path'] );
+			self::write_log( 'Error on open/create global zip file ' . $zip_filename_data['full_path'] );
 		}
 
 		return $status;
@@ -808,13 +819,25 @@ class Refairplugin_Documents_Manager {
 		}
 	}
 
+		/**
+		 * Build archive of deposit.
+		 *
+		 * @param  WP_Post $deposit deposit post data.
+		 * @return mixed zip data on success or false on failure.
+		 */
+	public static function refair_build_deposit_archive_by_id( $deposit_id ) {
+
+		$deposit_obj = get_post( (int) $deposit_id );
+		return self::refair_build_deposit_archive( $deposit_obj );
+	}
+
 	/**
 	 * Build archive of deposit.
 	 *
 	 * @param  WP_Post $deposit deposit post data.
 	 * @return mixed zip data on success or false on failure.
 	 */
-	protected function refair_build_deposit_archive( $deposit ) {
+	public static function refair_build_deposit_archive( $deposit ) {
 
 		$files_to_zip      = array();
 		$zip_filename_data = array(
@@ -868,7 +891,7 @@ class Refairplugin_Documents_Manager {
 
 		$zip_filename_data = \Refairplugin\Refairplugin_Utils::refair_build_deposit_archive_filename_data( $deposit->ID );
 
-		$status = $this->refair_zip_files( $zip_filename_data, $files_to_zip );
+		$status = self::refair_zip_files( $zip_filename_data, $files_to_zip );
 
 		if ( ! $status ) {
 			return $status;
@@ -981,8 +1004,6 @@ class Refairplugin_Documents_Manager {
 			)
 		);
 
-		$this->refair_regenerate_list_products_pdf( $listed_products );
-
 		return $this->refair_regenerate_list_products_pdf( $listed_products );
 	}
 
@@ -1012,12 +1033,48 @@ class Refairplugin_Documents_Manager {
 	}
 
 	/**
+	 * Regenerate archive of listed deposits.
+	 *
+	 * @param  array $listed_deposits List of products to regenerate.
+	 */
+	private function refair_regenerate_list_deposit_archive( $listed_deposits ) {
+		foreach ( $listed_deposits as $listed_deposit ) {
+			$this->generate_deposit_pdf( $listed_deposit->ID, array( 'Refairplugin_Documents_Manager', 'refair_build_deposit_archive_by_id' ) );
+
+		}
+	}
+
+	/**
+	 * Handle bulk regenerate archive action ( edit page list ).
+	 *
+	 * @param  string $redirect_url Redirection after handling.
+	 * @param  string $action Action requested.
+	 * @param  array  $post_ids Post listed by Id targeted by the action.
+	 * @return string Redirection url.
+	 */
+	public function handle_deposit_regenerate_pdf_bulk_action( $redirect_url, $action, $post_ids ) {
+		if ( 'regenerate-archive' === $action ) {
+
+			$listed_archives = get_posts(
+				array(
+					'post_type'   => 'deposit',
+					'post__in'    => $post_ids,
+					'numberposts' => -1,
+				)
+			);
+			$this->refair_regenerate_list_deposit_archive( $listed_archives );
+
+			$redirect_url = add_query_arg( 'changed-to-published', count( $post_ids ), $redirect_url );
+		}
+		return $redirect_url;
+	}
+	/**
 	 * Write log for debug.
 	 *
 	 * @param  string $log message to log.
 	 * @return void
 	 */
-	public function write_log( $log ) {
+	public static function write_log( $log ) {
 		if ( true === WP_DEBUG ) {
 			if ( is_array( $log ) || is_object( $log ) ) {
 				error_log( print_r( $log, true ) );
