@@ -220,6 +220,7 @@ class Refairplugin {
 		$this->loader->add_filter( 'manage_edit-shop_order_sortable_columns', $plugin_admin_ui, 'set_shop_order_columns_head', 20 );
 		$this->loader->add_action( 'manage_shop_order_posts_custom_column', $plugin_admin_ui, 'set_columns_shop_order_additionnal_note', 20, 2 );
 		$this->loader->add_filter( 'bulk_actions-edit-product', $plugin_admin_ui, 'add_product_regenerate_pdf_bulk_action' );
+		$this->loader->add_filter( 'bulk_actions-edit-deposit', $plugin_admin_ui, 'add_deposit_regenerate_archive_bulk_action' );
 		
 	}
 
@@ -272,6 +273,7 @@ class Refairplugin {
 		$this->loader->add_action( 'wp_ajax_regenerate_products_pdf', $plugin_document_manager, 'refair_regenerate_products_pdf_exec' );
 		$this->loader->add_action( 'wp_ajax_update_deposit_orders_links', $plugin_public, 'refair_update_all_orders_links_to_deposits' );
 		$this->loader->add_filter( 'handle_bulk_actions-edit-product', $plugin_document_manager, 'handle_product_regenerate_pdf_bulk_action', 10, 3 );
+		$this->loader->add_filter( 'handle_bulk_actions-edit-deposit', $plugin_document_manager, 'handle_deposit_regenerate_pdf_bulk_action', 10, 3 );
 
 		// $this->loader->add_action( 'posts_join', $plugin_public, 'posts_join_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_fields', $plugin_public, 'posts_fields_deposit', 10, 2 );
