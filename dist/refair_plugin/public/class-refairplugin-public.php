@@ -873,7 +873,7 @@ class Refairplugin_Public {
 		$args_deposit['tax_query'] = $tax_query;
 
 		if ( array_key_exists( 'deposit', $deposits_args ) ) {
-			$args_deposit['include'] = array( $deposits_args['deposit'] );
+			$args_deposit['include'] = explode( ',', $deposits_args['deposit'] );
 		}
 
 		return implode( ',', get_posts( $args_deposit ) );
