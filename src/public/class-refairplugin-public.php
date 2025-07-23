@@ -1195,13 +1195,24 @@ class Refairplugin_Public {
 				'schema'       => null,
 			)
 		);
+		// register_rest_field(
+		// 	'deposit',
+		// 	'iris',
+		// 	array(
+		// 		'get_callback' => array(
+		// 			$this,
+		// 			'get_deposit_iris',
+		// 		),
+		// 		'schema'       => null,
+		// 	)
+		// );
 		register_rest_field(
 			'deposit',
-			'iris',
+			'insee_code',
 			array(
 				'get_callback' => array(
 					$this,
-					'get_deposit_iris',
+					'get_deposit_insee_code',
 				),
 				'schema'       => null,
 			)
@@ -1235,15 +1246,25 @@ class Refairplugin_Public {
 		return $matches[0][1];
 	}
 
+	// /**
+	//  * Get deposit IRIS thanks to deposit ID.
+	//  *
+	//  * @param  array $deposit_data Deposit data.
+	//  * @return string IRIS meta value.
+	//  */
+	// public function get_deposit_iris( $deposit_data ) {
+	// 	return get_post_meta( $deposit_data['id'], 'iris', true );
+	// }
+
 	/**
-	 * Get deposit IRIS thanks to deposit ID.
+	 * Get deposit INSEE code thanks to deposit ID.
 	 *
 	 * @param  array $deposit_data Deposit data.
-	 * @return string IRIS meta value.
+	 * @return string INSEE code meta value.
 	 */
-	public function get_deposit_iris( $deposit_data ) {
-		return get_post_meta( $deposit_data['id'], 'iris', true );
-	}
+	public function get_deposit_insee_code( $deposit_data ) {
+		return get_post_meta( $deposit_data['id'], 'insee_code', true );
+	}	
 
 	/**
 	 * Get deposit dismantle date thanks to deposit ID.
