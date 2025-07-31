@@ -71,7 +71,7 @@ class Refairplugin_Settings {
 	 * Add settings page to global admin menu
 	 */
 	public function add_settings_page() {
-		add_options_page(	
+		add_options_page(
 			$this->plugin_name . ' ' . __( 'Settings', 'refair-plugin' ),
 			$this->plugin_name,
 			'manage_options',
@@ -116,6 +116,7 @@ class Refairplugin_Settings {
 			array(
 				'slug'     => 'mainsettings',
 				'name'     => __( 'Global settings', 'refair-plugin' ),
+				'is_tab'   => true,
 				'save'     => true,
 				'settings' => array(
 					array(
@@ -124,6 +125,25 @@ class Refairplugin_Settings {
 						'type'        => 'text',
 						'description' => '',
 						'options'     => array(),
+					),
+				),
+			),
+			array(
+				'slug'     => 'refair-plugin-actions',
+				'name'     => __( 'Actions', 'refair-plugin' ),
+				'is_tab'   => false,
+				'save'     => false,
+				'settings' => array(
+					array(
+						'name'        => 'insee_code',
+						'label'       => __( 'Code INSEE', 'refair-plugin' ),
+						'type'        => 'action',
+						'description' => '',
+						'options'     => array(
+							'button_text'  => __( 'Get all INSEE code', 'refair-plugin' ),
+							'button_class' => 'button button-secondary',
+							'url'          => admin_url( 'admin-ajax.php?action=refairplugin_get_all_insee_codes' ),
+						),
 					),
 				),
 			),
@@ -169,20 +189,22 @@ class Refairplugin_Settings {
 		 */
 		$tabs = apply_filters( 'refairplugin_tabs', $this->get_ui_data() );
 		?>
-	<h2 class="nav-tab-wrapper">
-		<?php
-		array_walk(
-			$tabs,
-			function ( $tab ) use ( $this_page, $active_tab ) {
-				?>
-				<a href="<?php echo esc_attr( $this_page ); ?>&amp;tab=<?php echo esc_attr( $tab['slug'] ); ?>"
-				class="nav-tab <?php echo esc_attr( $tab['slug'] === $active_tab ? 'nav-tab-active' : '' ); ?>">
-				<?php echo esc_html( $tab['name'] ); ?></a>
-				<?php
-			}
-		);
+		<h2 class="nav-tab-wrapper">
+			<?php
+			array_walk(
+				$tabs,
+				function ( $tab ) use ( $this_page, $active_tab ) {
+					if ( $tab['is_tab'] ) {
+						?>
+						<a href="<?php echo esc_attr( $this_page ); ?>&amp;tab=<?php echo esc_attr( $tab['slug'] ); ?>"
+						class="nav-tab <?php echo esc_attr( $tab['slug'] === $active_tab ? 'nav-tab-active' : '' ); ?>">
+						<?php echo esc_html( $tab['name'] ); ?></a>
+						<?php
+					}
+				}
+			);
 		?>
-	</h2>
+		</h2>
 	
 		<?php
 		$current_tab = $tabs[ array_search( $active_tab, wp_list_pluck( $tabs, 'slug' ), true ) ];
@@ -204,8 +226,47 @@ class Refairplugin_Settings {
 		<?php endif; ?>
 	
 		</form>
-	</div>
-	
+
+		<?php
+		array_walk(
+			$tabs,
+			function ( $tab ) {
+				if ( false === $tab['is_tab'] ) {
+
+					?>
+					<h2 id="<?php echo $tab['slug']; ?>"><?php echo $tab['name']; ?></h2>
+					<div id="<?php echo $tab['slug']; ?>-settings">
+						<?php
+						array_walk(
+							$tab['settings'],
+							function ( $setting ) {
+								$setting_view = self::$setting_classes[ $setting['type'] ];
+								$data_view    = $setting_view->get_data_view( '', $setting );
+								$heading_view = $setting_view->get_heading_view( '', $setting );
+								ob_start();
+								?>
+								<table>
+									<tr>
+										<td>
+											<?php echo '<h3>' . esc_html( $heading_view ) . '</h3>'; ?>
+										</td>
+										<td>
+											<?php echo $data_view; ?>
+										</td>
+									</tr>
+								</table>
+								<?php
+								$setting_view = ob_get_clean();
+								echo $setting_view;
+							}
+						);
+					?>
+						</div>
+						<?php
+				}
+			}
+		);
+		?>
 		<?php
 	}
 

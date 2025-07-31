@@ -1605,4 +1605,6 @@ class Refairplugin_Public {
 		}
 		return $html;
 	}
+
+
 }
