@@ -277,6 +277,12 @@ class Refairplugin {
 		$this->loader->add_action( 'wp_ajax_update_deposit_orders_links', $plugin_public, 'refair_update_all_orders_links_to_deposits' );
 		$this->loader->add_filter( 'handle_bulk_actions-edit-product', $plugin_document_manager, 'handle_product_regenerate_pdf_bulk_action', 10, 3 );
 		$this->loader->add_filter( 'handle_bulk_actions-edit-deposit', $plugin_document_manager, 'handle_deposit_regenerate_pdf_bulk_action', 10, 3 );
+		$this->loader->add_action( 'post_type_link', $plugin_public, 'set_custom_product_permalink', 10, 3 );
+		$this->loader->add_action( 'init', $plugin_public, 'set_product_permastructure', 13 );
+		$this->loader->add_action( 'pre_get_posts', $plugin_public, 'rewrite_product_query_for_sku' );
+		$this->loader->add_filter( 'request', $plugin_public, 'rebuild_request_form_sku' );
+		$this->loader->add_filter( 'get_sample_permalink_html', $plugin_public, 'get_sample_permalink_html_with_sku', 10, 5 );
+		// $this->loader->add_action( 'template_redirect', $plugin_public, 'sku_url_redirect' );
 
 		// $this->loader->add_action( 'posts_join', $plugin_public, 'posts_join_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_fields', $plugin_public, 'posts_fields_deposit', 10, 2 );

@@ -184,12 +184,19 @@ foreach ( $ordered_materials as $deposit_ref => $ordered_families ) {
 						foreach ( $ordered_category['children'] as $material ) {
 							?>
 			<tr >
-							<?php $material_link = esc_url( get_permalink( $material['product']->get_id() ) ); ?>
+							<?php 
+							$material_link = esc_url( get_permalink( $material['product']->get_id() ) );
+							$material_unit = get_post_meta( $material['product']->get_id(), 'unit', true );
+							if ( '' === $material_unit || false === $material_unit ) {
+								$material_unit = 'u';
+							}
+							?>
 				<td class="ref-cell"><a href="<?php echo $material_link; ?>"><?php echo $material['product']->get_sku(); ?></a></td>		
 				<td class="family-cell"><?php echo $ordered_family['family']->name; ?></a></td>		
 				<td class="category-cell"><?php echo $ordered_category['category']->name; ?></a></td>		
 				<td class="title-cell"><?php echo $material['cart_item']->get_name(); ?></td>
 				<td class="qty-cell"><?php echo $material['cart_item']->get_quantity(); ?></td>
+				<td class="unit-cell"><?php echo $material['cart_item']->get_quantity(); ?></td>
 				<td class="availability-cell">
 							<?php
 							if ( $material['availability'] != false ) {
