@@ -869,4 +869,94 @@ class Refairplugin_UI_Customization {
 			}
 		}return $r;
 	}
+
+	public function add_city_taxonomy_actions(){
+
+		if ( ! isset( $_GET['post_type'] ) ||
+		'deposit' !== $_GET['post_type'] ||
+		! isset( $_GET['taxonomy'] ) ||
+		'city' !== $_GET['taxonomy'] ) {
+			return false;
+		}
+		$ajax_url = admin_url( 'admin-ajax.php' );
+
+		?>
+		<script type="text/javascript">
+			document.addEventListener("DOMContentLoaded",function(){
+				let ankle = document.querySelector(".wrap"); 
+				let before = document.querySelector(".wp-header-end");
+
+				
+				let regenGeometryMetaButton = document.createElement("a"); 
+				regenGeometryMetaButton.classList.add("regen-geometry-meta-btn", "page-title-action"); 
+				regenGeometryMetaButton.innerText = "Regénérer contours";
+
+				ankle.insertBefore(regenGeometryMetaButton, before);
+
+				let regenGeometryMeta = document.querySelector(".regen-geometry-meta-btn");
+				regenGeometryMeta.addEventListener(
+					'click',
+					function requestRegenGeometryMeta(params) {
+						const data = new FormData();
+
+						if ( ! regenGeometryMeta.classList.contains('disabled')){
+
+							data.append( 'action', 'regen_geometry_meta' );
+
+							fetch("<?php echo esc_url( $ajax_url ); ?>", {
+								method: "POST",
+								credentials: 'same-origin',
+								body: data
+							})
+							.then((response) => response.json())
+							.then((data) => {
+								// setTimeout(() => {
+								// 	window.location.reload();
+								// }, 1000);
+							})
+							.catch(function(error) {
+							});
+						}
+					}
+				);
+			});
+		</script>
+		<style>
+
+			.regen-geometry-meta-block{
+				border: solid 1px #0071a1;
+				padding: 2px 7px 2px 2px;
+				display:inline-block;
+				top: -5px;
+				position: relative;
+			}
+
+			.regen-geometry-meta-btn {
+				padding: 4px 8px;
+				position: relative;				
+				text-decoration: none;
+				border: 1px solid #0071a1;
+				border-radius: 2px;
+				text-shadow: none;
+				font-weight: 600;
+				font-size: 13px;
+				line-height: normal;
+				color: #0071a1;
+				background: #f3f5f6;
+				cursor: pointer;
+			}
+
+			.regen-geometry-meta-btn {
+				top: -3px;
+			}
+			.regen-geometry-meta-btn {
+				margin-left:5px;
+			}
+			.regen-geometry-meta-btn:hover {
+				background: #f1f1f1;
+				border-color: #016087;
+				color: #015080;
+			}
+		<?php
+	}
 }

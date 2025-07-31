@@ -12,6 +12,8 @@
  * @subpackage Refairplugin/includes
  */
 
+use Refairplugin\Refairplugin_Term_Meta_Edit;
+
 /**
  * The core plugin class.
  *
@@ -80,12 +82,13 @@ class Refairplugin {
 		} else {
 			$this->version = '1.0.0';
 		}
-		$this->plugin_id   = 'refairplugin';
-		
+		$this->plugin_id = 'refairplugin';
+
 		$this->load_dependencies();
 		$this->set_locale();
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
+		$this->define_common_hooks();
 		$this->plugin_name = 'REFAIR Plugin';
 	}
 
@@ -121,10 +124,11 @@ class Refairplugin {
 		 */
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-refairplugin-i18n.php';
 
+		require_once plugin_dir_path( __DIR__ ) . 'includes/class-refairplugin-term-meta-edit.php';
+
 		/**
 		 * The class responsible for defining all actions that occur in the admin area.
 		 */
-
 
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-view-utils.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-meta-parameters.php';
@@ -132,7 +136,6 @@ class Refairplugin {
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-meta-view.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-settings.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-setting-view.php';
-		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-term-meta-edit.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-metas-factory.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-ui-customization.php';
 		require_once plugin_dir_path( __DIR__ ) . 'admin/class-refairplugin-admin.php';
@@ -155,10 +158,9 @@ class Refairplugin {
 		/**
 		 * The class responsible for defining woocommerce products
 		 * side of the site.
-		 */		
+		 */
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-refairplugin-files-generator-input.php';
 		require_once plugin_dir_path( __DIR__ ) . 'includes/class-refairplugin-utils.php';
-
 
 		$this->loader = new Refairplugin_Loader();
 	}
@@ -213,15 +215,16 @@ class Refairplugin {
 		$this->loader->add_filter( 'parse_query', $plugin_admin_ui, 'convert_restrict', 1000 );
 		$this->loader->add_action( 'admin_footer-edit.php', $plugin_admin_ui, 'add_products_actions' );
 		$this->loader->add_action( 'admin_footer-edit.php', $plugin_admin_ui, 'add_orders_actions' );
+		$this->loader->add_action( 'admin_footer-edit-tags.php', $plugin_admin_ui, 'add_city_taxonomy_actions' );
 		$this->loader->add_action( 'wp_ajax_erase_products', $plugin_admin, 'refair_erase_products_exec' );
 		$this->loader->add_action( 'wp_ajax_set_all_products_stock_management', $plugin_admin, 'refair_set_all_products_stock_management_exec' );
+		$this->loader->add_action( 'wp_ajax_regen_geometry_meta', $plugin_admin, 'refair_regen_geometry_meta_exec' );
 		$this->loader->add_action( 'save_post_deposit', $plugin_admin, 'propagate_dismantle_date_on_save', 99, 3 );
 		$this->loader->add_filter( 'manage_shop_order_posts_columns', $plugin_admin_ui, 'set_shop_order_columns_head', 20 );
 		$this->loader->add_filter( 'manage_edit-shop_order_sortable_columns', $plugin_admin_ui, 'set_shop_order_columns_head', 20 );
 		$this->loader->add_action( 'manage_shop_order_posts_custom_column', $plugin_admin_ui, 'set_columns_shop_order_additionnal_note', 20, 2 );
 		$this->loader->add_filter( 'bulk_actions-edit-product', $plugin_admin_ui, 'add_product_regenerate_pdf_bulk_action' );
 		$this->loader->add_filter( 'bulk_actions-edit-deposit', $plugin_admin_ui, 'add_deposit_regenerate_archive_bulk_action' );
-		
 	}
 
 	/**
@@ -274,11 +277,95 @@ class Refairplugin {
 		$this->loader->add_action( 'wp_ajax_update_deposit_orders_links', $plugin_public, 'refair_update_all_orders_links_to_deposits' );
 		$this->loader->add_filter( 'handle_bulk_actions-edit-product', $plugin_document_manager, 'handle_product_regenerate_pdf_bulk_action', 10, 3 );
 		$this->loader->add_filter( 'handle_bulk_actions-edit-deposit', $plugin_document_manager, 'handle_deposit_regenerate_pdf_bulk_action', 10, 3 );
+		$this->loader->add_action( 'post_type_link', $plugin_public, 'set_custom_product_permalink', 10, 3 );
+		$this->loader->add_action( 'init', $plugin_public, 'set_product_permastructure', 13 );
+		$this->loader->add_action( 'pre_get_posts', $plugin_public, 'rewrite_product_query_for_sku' );
+		$this->loader->add_filter( 'request', $plugin_public, 'rebuild_request_form_sku' );
+		$this->loader->add_filter( 'get_sample_permalink_html', $plugin_public, 'get_sample_permalink_html_with_sku', 10, 5 );
+		// $this->loader->add_action( 'template_redirect', $plugin_public, 'sku_url_redirect' );
 
 		// $this->loader->add_action( 'posts_join', $plugin_public, 'posts_join_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_fields', $plugin_public, 'posts_fields_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_where', $plugin_public, 'posts_where_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_orderby', $plugin_public, 'posts_orderby_deposit', 10, 2 );
+	}
+
+
+	/**
+	 * Undocumented function
+	 *
+	 * @return void
+	 */
+	private function define_common_hooks() {
+
+		$term_color_meta = new Refairplugin_Term_Meta_Edit(
+			'deposit',
+			'deposit_type',
+			array(
+				'name'    => 'color',
+				'title'   => 'Couleur',
+				'type'    => 'radio',
+				'options' => array(
+					'choices' => array(
+						array(
+							'label' => 'Vert',
+							'value' => 'green',
+						),
+						array(
+							'label' => 'Rouge',
+							'value' => 'red',
+						),
+						array(
+							'label' => 'Orange',
+							'value' => 'orange',
+						),
+						array(
+							'label' => 'Bleu',
+							'value' => 'blue',
+						),
+					),
+				),
+			),
+		);
+
+		$term_insee_code_meta = new Refairplugin_Term_Meta_Edit(
+			'deposit',
+			'city',
+			array(
+				'name'  => 'insee_code',
+				'title' => 'Code INSEE',
+				'type'  => 'text',
+
+			),
+		);
+
+		$term_geometry_meta = new Refairplugin_Term_Meta_Edit(
+			'deposit',
+			'city',
+			array(
+				'name'    => 'geometry',
+				'title'   => 'Contour géographique',
+				'type'    => 'text',
+				'options' => array(
+					'show_in_columns' => false,
+					'description'     => "Contour géographique de la commune au format GeoJSON. Utilisé pour afficher le contour dune commune sur une carte. Laisser vide, générer automatiquement ou cliquer 'Regénérer contours'.",
+				),
+			),
+		);
+
+		$term_centroid_meta = new Refairplugin_Term_Meta_Edit(
+			'deposit',
+			'city',
+			array(
+				'name'    => 'centroid',
+				'title'   => 'Centre géographique',
+				'type'    => 'text',
+				'options' => array(
+					'show_in_columns' => false,
+					'description'     => "Centre géographique de la commune au format [lat,lng]. Utilisé pour afficher le centre d'une commune sur une carte. Laisser vide, générer automatiquement ou cliquer 'Regénérer contours'.",
+				),
+			),
+		);
 	}
 
 	/**

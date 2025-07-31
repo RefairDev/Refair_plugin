@@ -1163,6 +1163,10 @@ class Refairplugin_Public {
 			if ( false !== $inv_av && 0 !== $inv_av && '' !== $inv_av ) {
 				$deposit['availability'] = $inv_av;
 			}
+			$inv_ref = get_post_meta( $inv_post->ID, 'reference', true );
+			if ( false !== $inv_ref && 0 !== $inv_ref && '' !== $inv_ref ) {
+				$deposit['reference'] = $inv_ref;
+			}
 		}
 		return $deposit;
 	}
@@ -1195,13 +1199,24 @@ class Refairplugin_Public {
 				'schema'       => null,
 			)
 		);
+		// register_rest_field(
+		// 'deposit',
+		// 'iris',
+		// array(
+		// 'get_callback' => array(
+		// $this,
+		// 'get_deposit_iris',
+		// ),
+		// 'schema'       => null,
+		// )
+		// );
 		register_rest_field(
 			'deposit',
-			'iris',
+			'insee_code',
 			array(
 				'get_callback' => array(
 					$this,
-					'get_deposit_iris',
+					'get_deposit_insee_code',
 				),
 				'schema'       => null,
 			)
@@ -1235,14 +1250,24 @@ class Refairplugin_Public {
 		return $matches[0][1];
 	}
 
+	// /**
+	// * Get deposit IRIS thanks to deposit ID.
+	// *
+	// * @param  array $deposit_data Deposit data.
+	// * @return string IRIS meta value.
+	// */
+	// public function get_deposit_iris( $deposit_data ) {
+	// return get_post_meta( $deposit_data['id'], 'iris', true );
+	// }
+
 	/**
-	 * Get deposit IRIS thanks to deposit ID.
+	 * Get deposit INSEE code thanks to deposit ID.
 	 *
 	 * @param  array $deposit_data Deposit data.
-	 * @return string IRIS meta value.
+	 * @return string INSEE code meta value.
 	 */
-	public function get_deposit_iris( $deposit_data ) {
-		return get_post_meta( $deposit_data['id'], 'iris', true );
+	public function get_deposit_insee_code( $deposit_data ) {
+		return get_post_meta( $deposit_data['id'], 'insee_code', true );
 	}
 
 	/**
@@ -1476,5 +1501,108 @@ class Refairplugin_Public {
 		}
 
 		return $found_posts;
+	}
+
+	public function set_product_permastructure() {
+
+		$struct_permalinks = wc_get_permalink_structure();
+
+		$root_product_permalink = str_replace( '/', '', $struct_permalinks['product_rewrite_slug'] );
+
+		add_rewrite_tag(
+			'%sku%',
+			'([^&]+)'
+		);
+		add_rewrite_rule(
+			$root_product_permalink . '/([^/]+)/?$',
+			'index.php?sku=$matches[1]',
+			'top'
+		);
+
+		flush_rewrite_rules();
+	}
+
+
+	public function set_custom_product_permalink( $permalink, $post, $leavename ) {
+		if ( 'product' === $post->post_type ) {
+			$sku = get_post_meta( $post->ID, '_sku', true );
+
+			$permalink = str_replace( $post->post_name, $sku, $permalink );
+		}
+		return $permalink;
+	}
+	public function rewrite_product_query_for_sku( $query ) {
+		if ( $query->is_main_query() && array_key_exists( 'sku', $query->query_vars ) ) {
+				// We are using this SKU to find the product.
+				$sku = sanitize_text_field( $query->query_vars['sku'] );
+				$query->set( 'post_type', 'product' );
+				$query->set( 'is_single', true );
+				$query->set( 'is_home', false );
+				$query->set(
+					'meta_query',
+					array(
+						array(
+							'key'     => '_sku',
+							'value'   => $sku,
+							'compare' => '=',
+						),
+					)
+				);
+		}
+	}
+
+	public function sku_url_redirect() {
+		if ( isset( $_GET['sku'] ) ) {
+			$sku        = wc_clean( $_GET['sku'] );
+			$product_id = (int) wc_get_product_id_by_sku( $sku );
+			if ( $product_id > 0 ) {
+					$variation_id   = 0;
+					$variation_data = wc_get_product_variation_by_sku( $sku );
+				if ( $variation_data ) {
+					$variation_id = $variation_data['variation_id'];
+				}  $url = $variation_id ? get_permalink( $product_id ) . '?variation_id=' . $variation_id : get_permalink( $product_id );
+					wp_safe_redirect( $url );
+					exit;
+			}
+		}
+	}
+
+	public function rebuild_request_form_sku( $query_vars ) {
+		if ( isset( $query_vars['sku'] ) && ! empty( $query_vars['sku'] ) ) {
+			$sku = sanitize_text_field( $query_vars['sku'] );
+			if ( ! empty( $sku ) ) {
+				$found_posts = get_posts(
+					array(
+						'post_type'  => 'product',
+						'meta_query' => array(
+							array(
+								'key'     => '_sku',
+								'value'   => $sku,
+								'compare' => '=',
+							),
+						),
+					)
+				);
+				if ( ! empty( $found_posts ) && is_array( $found_posts ) && count( $found_posts ) > 0 ) {
+					$query_vars['post_type'] = 'product';
+					$query_vars['p']         = $found_posts[0]->ID;
+					unset( $query_vars['sku'] );
+				} else {
+					// If no product found, we remove the sku from query vars.
+					unset( $query_vars['sku'] );
+				}
+			}
+		}
+		return $query_vars;
+	}
+
+	public function get_sample_permalink_html_with_sku( $html, $post_id, $title, $url, $post ) {
+		if ( 'product' === $post->post_type ) {
+			$sku = get_post_meta( $post_id, '_sku', true );
+			if ( ! empty( $sku ) ) {
+				$html = str_replace( $post->post_name, $sku, $html );
+			}
+		}
+		return $html;
 	}
 }

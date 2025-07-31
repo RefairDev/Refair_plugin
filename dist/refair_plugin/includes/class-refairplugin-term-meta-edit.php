@@ -49,7 +49,7 @@ class Refairplugin_Term_Meta_Edit {
 	 *
 	 * @var array
 	 */
-	protected $options = '';
+	protected $options = array();
 
 	/**
 	 * Type of meta.
@@ -81,6 +81,9 @@ class Refairplugin_Term_Meta_Edit {
 
 		$this->post_type = $post_type;
 
+		if ( ! array_key_exists( 'options', $meta ) || ! is_array( $meta['options'] ) ) {
+			$meta['options'] = array();
+		}
 		$this->options = $meta['options'];
 
 		$this->type = $meta['type'];
@@ -102,7 +105,9 @@ class Refairplugin_Term_Meta_Edit {
 		add_action( "edit_{$this->taxonomy}", array( $this, '___save_term_meta_text' ) );
 		add_action( "create_{$this->taxonomy}", array( $this, '___save_term_meta_text' ) );
 
-		add_filter( "manage_edit-{$this->taxonomy}_columns", array( $this, '___edit_term_columns' ), 10, 3 );
+		if ( ( array_key_exists( 'show_in_columns', $this->options ) && true === $this->options['show_in_columns'] ) || ( ! array_key_exists( 'show_in_columns', $this->options ) ) ) {
+			add_filter( "manage_edit-{$this->taxonomy}_columns", array( $this, '___edit_term_columns' ), 10, 3 );
+		}
 		add_filter( "manage_{$this->taxonomy}_custom_column", array( $this, '___manage_term_custom_column' ), 10, 3 );
 	}
 
@@ -112,7 +117,15 @@ class Refairplugin_Term_Meta_Edit {
 	 * @return void
 	 */
 	public function ___register_term_meta_text() {
-		register_meta( 'term', $this->name, '___sanitize_term_meta_text' );
+		register_term_meta(
+			$this->taxonomy,
+			$this->name,
+			array(
+				'sanitize_callback' => array( $this, '___sanitize_term_meta_text' ),
+				'show_in_rest'      => true,
+				'single'            => true,
+			)
+		);
 	}
 
 	/**
@@ -173,7 +186,11 @@ class Refairplugin_Term_Meta_Edit {
 					<?php
 
 			}
-
+			if ( $this->options && array_key_exists( 'description', $this->options ) && ! empty( $this->options['description'] ) ) {
+				?>
+				<p class="description"><?php echo esc_html( $this->options['description'] ); ?></p>
+				<?php
+			}
 			?>
 		</div>
 		<?php
@@ -196,7 +213,7 @@ class Refairplugin_Term_Meta_Edit {
 		?>
 
 		<tr class="form-field term-meta-text-wrap">
-			<th scope="row"><label for="term-meta-text"><?php $this->description; ?></label></th>
+			<th scope="row"><label for="term-meta-text"><?php echo $this->description; ?></label></th>
 			<td>
 				<?php wp_nonce_field( basename( __FILE__ ), 'term_meta_text_nonce' ); ?>
 				<?php
@@ -228,7 +245,11 @@ class Refairplugin_Term_Meta_Edit {
 					<input type="<?php echo esc_attr( $this->type ); ?>" name="<?php echo esc_attr( $this->name ); ?>" id="<?php echo esc_attr( $this->name ); ?>" value="<?php echo esc_html( $value ); ?>" class="<?php echo esc_attr( $this->name ); ?>-field" />
 						<?php
 				}
-
+				if ( $this->options && array_key_exists( 'description', $this->options ) && ! empty( $this->options['description'] ) ) {
+					?>
+					<p class="description"><?php echo esc_html( $this->options['description'] ); ?></p>
+					<?php
+				}
 				?>
 			</td>
 		</tr>

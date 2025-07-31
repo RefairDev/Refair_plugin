@@ -14,7 +14,7 @@ use Refairplugin\Refairplugin_Utils;
 use Refairplugin\Metas;
 use Refairplugin\Refairplugin_Meta_View;
 use Refairplugin\Meta;
-use Refairplugin\Refairplugin_Term_Meta_Edit;
+
 
 /**
  * The admin-specific functionality of the plugin.
@@ -91,6 +91,7 @@ class Refairplugin_Admin {
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'text', 'reference', 'Référence de site', array() ) );
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'locmap', 'location', 'Localisation', array() ) );
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'text', 'iris', 'Code IRIS', array() ) );
+		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'text', 'insee_code', 'Code INSEE', array() ) );
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'date', 'dismantle_date', 'Date de démolition', array() ) );
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'long', 'availability_details', 'Détails de disponibilité', array() ) );
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'long', 'plus_details', 'Détails des plus', array() ) );
@@ -111,36 +112,6 @@ class Refairplugin_Admin {
 		);
 
 		$this->meta_factory_deposit->create( new Refairplugin_Meta_Parameters( 'text', 'ressources_url', 'URL de ressources' ) );
-
-		$term_color_meta = new Refairplugin_Term_Meta_Edit(
-			'deposit',
-			'deposit_type',
-			array(
-				'name'    => 'color',
-				'title'   => 'Couleur',
-				'type'    => 'radio',
-				'options' => array(
-					'choices' => array(
-						array(
-							'label' => 'Vert',
-							'value' => 'green',
-						),
-						array(
-							'label' => 'Rouge',
-							'value' => 'red',
-						),
-						array(
-							'label' => 'Orange',
-							'value' => 'orange',
-						),
-						array(
-							'label' => 'Bleu',
-							'value' => 'blue',
-						),
-					),
-				),
-			),
-		);
 
 		$this->meta_factory_shop_order = $this->create_meta_factory( 'shop_order' );
 
@@ -383,7 +354,7 @@ class Refairplugin_Admin {
 				'label'         => __( 'Location', 'refair-plugin' ),
 				'wrapper_class' => 'form-row form-row-full',
 				'placeholder'   => __( 'Material location', 'refair-plugin' ),
-				'description'   => __( "Location where the materials can be found", 'refair-plugin' ),
+				'description'   => __( 'Location where the materials can be found', 'refair-plugin' ),
 				'value'         => get_post_meta( $variation->ID, 'location', true ),
 				'desc_tip'      => true,
 			)
@@ -598,6 +569,309 @@ class Refairplugin_Admin {
 		}
 	}
 
+	public function refair_regen_geometry_meta_exec() {
+
+		// Get all terms of city taxonomy
+		$localities = get_terms(
+			array(
+				'taxonomy'   => 'city',
+				'hide_empty' => false,
+			)
+		);
+
+		if ( is_wp_error( $localities ) || ( is_array( $localities ) && empty( $localities ) ) ) {
+			return new \WP_Error( 'no_localities', 'No localities found', array( 'status' => 404 ) );
+		}
+
+		foreach ( $localities as $locality ) {
+
+			$insee_code = get_term_meta( $locality->term_id, 'insee_code', true );
+
+			$geometry = $this->get_locality_geometry( $insee_code );
+
+			if ( is_wp_error( $geometry ) ) {
+				return new \WP_Error( 'no_geometry', 'No geometry found for' . $insee_code, array( 'status' => 404 ) );
+
+			}
+
+			$meta_rt = $this->update_city_term_geometry_meta( $locality->term_id, $geometry );
+
+			$centroid = $this->get_locality_centroid( $geometry );
+
+			if ( is_wp_error( $centroid ) ) {
+				return new \WP_Error( 'no_centroid', 'No centroid found for' . $insee_code, array( 'status' => 404 ) );
+
+			}
+
+			$meta_rt = $this->update_city_term_centroid_meta( $locality->term_id, $centroid );
+
+			if ( is_wp_error( $meta_rt ) ) {
+				return $meta_rt;
+			}
+		}
+	}
+
+	/**
+	 * Undocumented function
+	 *
+	 * @param  [type] $insee_code
+	 * @return void
+	 */
+	public function get_locality_geometry( $insee_code ) {
+
+		if ( empty( $insee_code ) ) {
+			return new \WP_Error( 'geometry_error', 'INSEE code is empty', array( 'status' => 400 ) );
+		}
+		$rt_raw = wp_remote_get(
+			'https://apicarto.ign.fr/api/cadastre/commune?code_insee=' . $insee_code,
+			array(
+				'timeout' => 10,
+			)
+		);
+		if ( is_wp_error( $rt_raw ) || 200 !== wp_remote_retrieve_response_code( $rt_raw ) ) {
+			return new \WP_Error( 'geometry_error', 'Failed to retrieve geometry for locality: ' . $insee_code, array( 'status' => 500 ) );
+		}
+		$rt_body_json = wp_remote_retrieve_body( $rt_raw );
+		$rt           = json_decode( $rt_body_json, true );
+
+		$geometry = $rt['features'][0]['geometry']['coordinates'] ?? false;
+
+		return $geometry;
+	}
+
+
+
+	public function update_city_term_geometry_meta( int $locality_id, $geometry ) {
+
+		if ( empty( $geometry ) ) {
+			return new \WP_Error( 'geometry_error', 'Geometry is empty for locality ID: ' . $locality_id, array( 'status' => 400 ) );
+		}
+		$geometry = $this->invert_geometry_coordinates( $geometry );
+
+
+		return $this->update_city_term_meta( $locality_id, 'geometry', $geometry );
+	}
+
+	public function update_city_term_centroid_meta( int $locality_id, $centroid ) {
+
+		if ( empty( $centroid ) ) {
+			return new \WP_Error( 'centroid_error', 'Centroid is empty for locality ID: ' . $locality_id, array( 'status' => 400 ) );
+		}
+
+		return $this->update_city_term_meta( $locality_id, 'centroid', $centroid );
+	}
+
+	/**
+	 * Undocumented function
+	 *
+	 * @param  integer $locality_id
+	 * @param  [type]  $geometry
+	 * @return void
+	 */
+	public function update_city_term_meta( int $locality_id, $meta_name, $meta_value ) {
+
+		$meta_rt        = false;
+
+		$term_meta = get_term_meta( $locality_id, $meta_name, true );
+		if ( empty( $term_meta ) ) {
+			$meta_rt = add_term_meta( $locality_id, $meta_name, wp_json_encode( $meta_value ), true );
+
+			if ( is_wp_error( $meta_rt ) || ! $meta_rt ) {
+				return new \WP_Error( $meta_name . '_error', 'Failed to set ' . $meta_name . ' for locality: ' . $locality, array( 'status' => 500 ) );
+			}
+		} else {
+			$meta_rt = update_term_meta( $locality_id, $meta_name, wp_json_encode( $meta_value ) );
+
+			if ( is_wp_error( $meta_rt ) ) {
+				return new \WP_Error( $meta_name . '_error', 'Failed to update ' . $meta_name . ' for locality: ' . $locality, array( 'status' => 500 ) );
+			}
+		}
+		return $meta_rt;
+	}
+
+	/**
+	 * Get the centroid of a locality based on its geometry
+	 *
+	 * @param array $geometry Geometry coordinates of the locality.
+	 * @return array|false Centroid coordinates [longitude, latitude] or false on error
+	 * @since 1.0.0
+	 * @access public
+	 *
+	 * @throws WP_Error If the geometry is invalid or if the centroid cannot be calculated.
+	 * */
+	public function get_locality_centroid( $geometry ) {
+
+		return $this->refairplugin_get_multipolygon_centroid(
+			wp_json_encode(
+				array(
+					'type'        => 'MultiPolygon',
+					'coordinates' => $geometry,
+				)
+			)
+		);
+	}
+
+	/**
+	 * Calculate the centroid of a MultiPolygon from GeoJSON data
+	 *
+	 * @param array $geojson_multipolygon GeoJSON MultiPolygon feature
+	 * @return array|false Centroid coordinates [longitude, latitude] or false on error
+	 */
+	private function calculate_multipolygon_centroid( $geojson_multipolygon ) {
+		// Validate input structure
+		if ( ! is_array( $geojson_multipolygon ) ||
+			! isset( $geojson_multipolygon['type'] ) ||
+			$geojson_multipolygon['type'] !== 'MultiPolygon' ||
+			! isset( $geojson_multipolygon['coordinates'] ) ) {
+			return false;
+		}
+
+		$total_area = 0;
+		$weighted_x = 0;
+		$weighted_y = 0;
+
+		// Process each polygon in the multipolygon
+		foreach ( $geojson_multipolygon['coordinates'] as $polygon ) {
+			// Get the exterior ring (first ring) of each polygon
+			$exterior_ring = $polygon[0];
+
+			$r_exterior_ring = array_reverse( $exterior_ring );
+			$json_r_ex_ring = wp_json_encode( $r_exterior_ring );
+
+			// Calculate polygon area and centroid
+			$polygon_area     = $this->calculate_polygon_area( $r_exterior_ring );
+			$polygon_centroid = $this->calculate_polygon_centroid( $r_exterior_ring );
+
+			if ( $polygon_area > 0 && $polygon_centroid ) {
+				$total_area += $polygon_area;
+				$weighted_x += $polygon_centroid[0] * $polygon_area;
+				$weighted_y += $polygon_centroid[1] * $polygon_area;
+			}
+		}
+
+		// Calculate weighted average centroid
+		if ( $total_area > 0 ) {
+			return array(
+				$weighted_y / $total_area,  // latitude
+				$weighted_x / $total_area, // longitude
+			);
+		}
+
+		return false;
+	}
+
+	/**
+	 * Calculate the area of a polygon using the shoelace formula
+	 *
+	 * @param array $coordinates Array of coordinate pairs [[lng, lat], ...]
+	 * @return float Polygon area (absolute value)
+	 */
+	private function calculate_polygon_area( $coordinates ) {
+		$n = count( $coordinates );
+		if ( $n < 3 ) {
+			return 0;
+		}
+
+		$area = 0;
+
+		// Apply shoelace formula
+		for ( $i = 0; $i < $n - 1; $i++ ) {
+			$area += ( $coordinates[ $i ][0] * $coordinates[ $i + 1 ][1] ) -
+					( $coordinates[ $i + 1 ][0] * $coordinates[ $i ][1] );
+		}
+
+		return abs( $area ) / 2;
+	}
+
+	/**
+	 * Calculate the centroid of a polygon using geometric center formula
+	 *
+	 * @param array $coordinates Array of coordinate pairs [[lng, lat], ...]
+	 * @return array|false Centroid coordinates [longitude, latitude] or false on error
+	 */
+	private function calculate_polygon_centroid( $coordinates ) {
+		$n = count( $coordinates );
+		if ( $n < 3 ) {
+			return false;
+		}
+
+		$area = $this->calculate_polygon_area( $coordinates );
+		if ( $area == 0 ) {
+			return false;
+		}
+
+		$cx = 0;
+		$cy = 0;
+
+		// Calculate centroid using the standard formula
+		for ( $i = 0; $i < $n - 1; $i++ ) {
+			$x0 = $coordinates[ $i ][0];
+			$y0 = $coordinates[ $i ][1];
+			$x1 = $coordinates[ $i + 1 ][0];
+			$y1 = $coordinates[ $i + 1 ][1];
+
+			$cross = ( $x0 * $y1 ) - ( $x1 * $y0 );
+			$cx   += ( $x0 + $x1 ) * $cross;
+			$cy   += ( $y0 + $y1 ) * $cross;
+		}
+
+		$factor = 1 / ( 6 * $area );
+
+		return array(
+			$cx * $factor, // longitude
+			$cy * $factor,  // latitude
+		);
+	}
+
+	/**
+	 * WordPress helper function to get centroid from GeoJSON feature
+	 *
+	 * @param string $geojson_string JSON string containing GeoJSON data
+	 * @return array|WP_Error Centroid coordinates or WP_Error on failure
+	 */
+	private function refairplugin_get_multipolygon_centroid( $geojson_string ) {
+		// Decode JSON
+		$geojson = json_decode( $geojson_string, true );
+
+		if ( json_last_error() !== JSON_ERROR_NONE ) {
+			return new WP_Error( 'invalid_json', 'Invalid GeoJSON format' );
+		}
+
+		// Handle Feature or FeatureCollection
+		$geometry = null;
+		if ( isset( $geojson['type'] ) ) {
+			switch ( $geojson['type'] ) {
+				case 'Feature':
+					$geometry = $geojson['geometry'];
+					break;
+				case 'MultiPolygon':
+					$geometry = $geojson;
+					break;
+				case 'FeatureCollection':
+					// Take the first MultiPolygon feature found
+					foreach ( $geojson['features'] as $feature ) {
+						if ( isset( $feature['geometry']['type'] ) &&
+							$feature['geometry']['type'] === 'MultiPolygon' ) {
+							$geometry = $feature['geometry'];
+							break;
+						}
+					}
+					break;
+			}
+		}
+
+		if ( ! $geometry || $geometry['type'] !== 'MultiPolygon' ) {
+			return new WP_Error( 'no_multipolygon', 'No MultiPolygon geometry found' );
+		}
+
+		$centroid = $this->calculate_multipolygon_centroid( $geometry );
+
+		if ( false === $centroid ) {
+			return new WP_Error( 'calculation_failed', 'Failed to calculate centroid' );
+		}
+
+		return $centroid;
+	}
 
 	/**
 	 * Propagate dismantle date meta of the deposit to linked products
@@ -634,5 +908,29 @@ class Refairplugin_Admin {
 				do_action( 'start_generation_pdf', $post_id );
 			}
 		}
+	}
+
+	protected function invert_geometry_coordinates( $geometry ) {
+		if ( ! is_array( $geometry ) ) {
+			return $geometry; // Return as is if not an array
+		}
+
+		// Invert coordinates for each polygon
+		foreach ( $geometry as &$polygon ) {
+			if ( is_array( $polygon ) ) {
+				foreach ( $polygon as &$ring ) {
+					if ( is_array( $ring ) ) {
+						foreach ( $ring as &$point ) {
+							if ( is_array( $point ) && count( $point ) === 2 ) {
+								// Invert the point coordinates
+								$point = array( $point[1], $point[0] );
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return $geometry;
 	}
 }

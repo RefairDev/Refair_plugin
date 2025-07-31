@@ -121,8 +121,16 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 
 	protected function generate_xls_Eoi_header( $aws, $deposit ) {
 
-		$aws->mergeCells( 'B2:I2' );
-		$aws->setCellValue( 'B2', "Manifestations d'intérêt\npour le Site d'inventaire\n" . $deposit->ID );
+		$deposit_ref = get_post_meta( $deposit->ID, 'reference', true );
+
+		$rich_text = new \PhpOffice\PhpSpreadsheet\RichText\RichText();
+		$rich_text->createText( "Manifestations d'intérêt\npour le Site d'inventaire\n".$deposit->post_title."\n" );
+		$payable = $rich_text->createTextRun( ' (' . $deposit_ref . ' - ' . $deposit->ID . ')' );
+		$payable->getFont()->setSize(18);
+
+		$aws->mergeCells( 'B2:N2' );
+		$aws->setCellValue( 'B2', $rich_text );
+		$aws->getStyle( 'B2' )->getAlignment()->setWrapText( true );
 		$style_array = array(
 			'font'      => array(
 				'bold' => true,
@@ -148,7 +156,7 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 			),
 		);
 
-		$aws->getStyle( 'B2:I2' )->applyFromArray( $style_array );
+		$aws->getStyle( 'B2:N2' )->applyFromArray( $style_array );
 		$cell_value   = $aws->getCell( 'B2' )->getValue();
 		$substr_count = 0;
 		if ( null !== $cell_value ) {
@@ -160,23 +168,29 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 
 	protected function generate_xls_Eoi_Body( $aws, $deposit ) {
 
-		$aws->setCellValue( 'B7', 'Ref M.I.' );
-		$aws->setCellValue( 'C7', 'Ref Materiau' );
-		$aws->setCellValue( 'D7', 'Famille' );
-		$aws->setCellValue( 'E7', 'Catégorie' );
-		$aws->setCellValue( 'F7', 'Designation' );
-		$aws->setCellValue( 'G7', 'Qté' );
-		$aws->setCellValue( 'H7', 'Unité' );
-		$aws->setCellValue( 'I7', 'Disponibilité' );
+		$columns = array(
+			'B' => 'Ref M.I.',
+			'C' => 'Nom manifestant',
+			'D' => 'Coordonnées manifestant',
+			'E' => 'Date de création',
+			'F' => 'Nom batiment',
+			'G' => 'Ref Materiau',
+			'H' => 'Famille',
+			'I' => 'Catégorie',
+			'J' => 'Designation',
+			'K' => 'Qté',
+			'L' => 'Qté initiale',
+			'M' => 'Unité',
+			'N' => 'Disponibilité',
+		);
 
-		$aws->getColumnDimension( 'B' )->setAutoSize( true );
-		$aws->getColumnDimension( 'C' )->setAutoSize( true );
-		$aws->getColumnDimension( 'D' )->setAutoSize( true );
-		$aws->getColumnDimension( 'E' )->setAutoSize( true );
-		$aws->getColumnDimension( 'F' )->setAutoSize( true );
-		$aws->getColumnDimension( 'G' )->setAutoSize( true );
-		$aws->getColumnDimension( 'H' )->setAutoSize( true );
-		$aws->getColumnDimension( 'I' )->setAutoSize( true );
+		$first_column_letter = array_key_first( $columns );
+		$last_column_letter  = array_key_last( $columns );
+
+		foreach ( $columns as $column_letter => $column_name ) {
+			$aws->setCellValue( $column_letter . '7', $column_name );
+			$aws->getColumnDimension( $column_letter )->setAutoSize( true );
+		}
 
 		$current_line       = 8;
 		$items              = $this->get_and_filter_items( $deposit );
@@ -185,9 +199,9 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 			$deposit_start_line = $current_line;
 			foreach ( $ordered_families as $ordered_family ) {
 
-				$aws->setCellValue( 'B' . strval( $current_line ), $ordered_family['family']->name );
-				$aws->getStyle( 'B' . strval( $current_line ) )->getFont()->setSize( 18 );
-				$aws->mergeCells( 'B' . strval( $current_line ) . ':I' . strval( $current_line ) );
+				$aws->setCellValue( $first_column_letter . strval( $current_line ), $ordered_family['family']->name );
+				$aws->getStyle( $first_column_letter . strval( $current_line ) )->getFont()->setSize( 18 );
+				$aws->mergeCells( $first_column_letter . strval( $current_line ) . ':' . $last_column_letter . strval( $current_line ) );
 				$aws->getRowDimension( strval( $current_line ) )->setRowHeight( 18 * 1.3, 'pt' );
 				$style_array = array(
 					'borders'   => array(
@@ -204,12 +218,12 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 						'indent'     => 4,
 					),
 				);
-				$aws->getStyle( 'B' . $current_line . ':H' . $current_line )->applyFromArray( $style_array );
+				$aws->getStyle( $first_column_letter . $current_line . ':' . $last_column_letter . $current_line )->applyFromArray( $style_array );
 				++$current_line;
 
 				foreach ( $ordered_family['children'] as $ordered_category ) {
 
-					$aws->setCellValue( 'B' . strval( $current_line ), $ordered_category['category']->name );
+					$aws->setCellValue( $first_column_letter . strval( $current_line ), $ordered_category['category']->name );
 					foreach ( $ordered_category['children'] as $material ) {
 
 						$qty_unit = 'N\D';
@@ -220,28 +234,49 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 							$qty_unit = 'N\D';
 						}
 
-						$aws->setCellValue( 'B' . strval( $current_line ), $material['order'] );
-						$aws->setCellValue( 'C' . strval( $current_line ), $material['product']->get_sku() );
-						$aws->getCell( 'C' . strval( $current_line ) )->getHyperlink()->setUrl( $material['product']->get_permalink() );
-						$aws->setCellValue( 'D' . strval( $current_line ), $ordered_family['family']->name );
-						$aws->setCellValue( 'E' . strval( $current_line ), $ordered_category['category']->name );
-						$aws->setCellValue( 'F' . strval( $current_line ), $material['cart_item']->get_name() );
-						$aws->setCellValue( 'G' . strval( $current_line ), $material['cart_item']->get_quantity() );
-						$aws->setCellValue( 'H' . strval( $current_line ), $qty_unit );
+						$date = $material['order']->get_date_created()->date( 'd/m/Y' );
+						if ( false === $date ) {
+							$date = 'N\D';
+						}
+
+						$initial_qty = $material['product']->get_meta( 'initial_stock', true );
+						if ( false === $initial_qty || '' === $initial_qty ) {
+							$initial_qty = 'N\D';
+						}
+
+						$deposit_ref = $material['product']->get_meta( 'deposit', true );
+						if ( false === $deposit_ref || '' === $deposit_ref ) {
+							$deposit_ref = 'N\D';
+						}
+
+						$aws->setCellValue( 'B' . strval( $current_line ), $material['order']->id );
+						$aws->setCellValue( 'C' . strval( $current_line ), $material['order']->data['billing']['first_name'] . ' ' . $material['order']->data['billing']['last_name'] );
+						$aws->setCellValue( 'D' . strval( $current_line ), $material['order']->data['billing']['email'] . ' - ' . $material['order']->data['billing']['phone'] );
+						$aws->setCellValue( 'E' . strval( $current_line ), $date );
+						$aws->setCellValue( 'F' . strval( $current_line ), $deposit_ref );
+						$aws->setCellValue( 'G' . strval( $current_line ), $material['product']->get_sku() );
+						$aws->getCell( 'G' . strval( $current_line ) )->getHyperlink()->setUrl( $material['product']->get_permalink() );
+						$aws->setCellValue( 'H' . strval( $current_line ), $ordered_family['family']->name );
+						$aws->setCellValue( 'I' . strval( $current_line ), $ordered_category['category']->name );
+						$aws->setCellValue( 'J' . strval( $current_line ), $material['cart_item']->get_name() );
+						$aws->setCellValue( 'K' . strval( $current_line ), $material['cart_item']->get_quantity() );
+						$aws->setCellValue( 'L' . strval( $current_line ), $initial_qty );
+						$aws->setCellValue( 'M' . strval( $current_line ), $qty_unit );
 						if ( $material['availability'] != false ) {
-							$aws->setCellValue( 'I' . strval( $current_line ), $material['availability'] );
+							$aws->setCellValue( 'N' . strval( $current_line ), $material['availability'] );
 						}
 						++$current_line;
 					}
 				}
 				++$current_line;
 			}
-			$style_array = array(
+			$style_array  = array(
 				'borders' => array(
 					'outline' => array( 'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THICK ),
 				),
 			);
-			$aws->getStyle( 'B' . $deposit_start_line . ':I' . $current_line )->applyFromArray( $style_array );
+			$current_line = $current_line - 2;
+			$aws->getStyle( $first_column_letter . $deposit_start_line . ':' . $last_column_letter . $current_line )->applyFromArray( $style_array );
 			++$current_line;
 		}
 	}
@@ -277,10 +312,10 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 				$items = array_merge(
 					$items,
 					array_map(
-						function ( $material ) use ( $deposit_order ) {
+						function ( $material ) use ( $deposit_order_obj ) {
 
 							return array(
-								'order'    => $deposit_order,
+								'order'    => $deposit_order_obj,
 								'material' => $material,
 							);
 						},
