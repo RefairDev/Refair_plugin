@@ -874,6 +874,86 @@ class Refairplugin_Admin {
 	}
 
 	/**
+	 * Get all deposits and update insee_code meta for each deposit.
+	 *
+	 * @return void
+	 */
+	public function refairplugin_get_all_insee_codes_exec() {
+
+		$rt = wp_json_encode(
+			array(
+				'status'  => 'error',
+				'message' => __( 'Undefined error', 'refair-plugin' ),
+			)
+		);
+		$args = array(
+			'post_type'      => 'deposit',
+			'post_status'    => 'publish',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+		);
+
+		try {
+
+			$deposits = get_posts( $args );
+
+			if ( ! empty( $deposits ) && is_array( $deposits ) ) {
+				foreach ( $deposits as $deposit_id ) {
+					$insee_code = get_post_meta( $deposit_id, 'insee_code', true );
+					if ( empty( $insee_code ) || false === $insee_code ) {
+						$insee_code = $this->get_insee_code_from_deposit( $deposit_id );
+						update_post_meta( $deposit_id, 'insee_code', $insee_code );
+					}
+				}
+			}
+			$rt  = wp_json_encode(
+				array(
+					'status'  => 'success',
+					'message' => __( 'INSEE codes updated for all deposits.', 'refair-plugin' ),
+				)
+			);
+		
+		} catch ( \Exception $e ) {
+			echo wp_json_encode(
+				array(
+					'status'  => 'error',
+					'message' => __( 'Error on deposits Insee code updating', 'refair-plugin' ) . $e->getMessage(),
+				)
+			);
+			exit;
+		}
+
+		echo $rt;
+		exit;
+	}
+
+	/**
+	 * Get INSEE code from deposit based on its location.
+	 *
+	 * @param  int $deposit_id ID of the deposit.
+	 * @return string INSEE code of the deposit.
+	 */
+	public function get_insee_code_from_deposit( $deposit_id ) {
+		$insee_code = '';
+		if ( ! empty( $deposit_id ) && is_numeric( $deposit_id ) ) {
+			$location = get_post_meta( $deposit_id, 'location', true );
+			if ( ! empty( $location ) && is_array( $location ) && array_key_exists( 'lat', $location ) && ! empty( $location['lat'] ) && array_key_exists( 'lng', $location ) && ! empty( $location['lng'] ) ) {
+				$locality_data_raw = wp_remote_get( 'https://apicarto.ign.fr/api/limites-administratives/commune?lon=' . $location['lng'] . '&lat=' . $location['lat'] );
+
+				$locality_data = json_decode( wp_remote_retrieve_body( $locality_data_raw ), true );
+
+				// if locality data is not empty and is an array and has existing key Features.
+				if ( ! empty( $locality_data ) && is_array( $locality_data ) && array_key_exists( 'features', $locality_data ) && is_array( $locality_data['features'] ) && count( $locality_data['features'] ) > 0 && array_key_exists( 'properties', $locality_data['features'][0] ) && is_array( $locality_data['features'][0]['properties'] ) && array_key_exists( 'insee_com', $locality_data['features'][0]['properties'] ) && ! empty( $locality_data['features'][0]['properties']['insee_com'] ) ) {
+					$insee_code = $locality_data['features'][0]['properties']['insee_com'];
+				} else {
+					$insee_code = '';
+				}
+			}
+		}
+		return $insee_code;
+	}	
+
+	/**
 	 * Propagate dismantle date meta of the deposit to linked products
 	 *
 	 * @param  int     $post_id id of the currently saved post.

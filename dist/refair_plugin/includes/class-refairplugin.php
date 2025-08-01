@@ -225,6 +225,7 @@ class Refairplugin {
 		$this->loader->add_action( 'manage_shop_order_posts_custom_column', $plugin_admin_ui, 'set_columns_shop_order_additionnal_note', 20, 2 );
 		$this->loader->add_filter( 'bulk_actions-edit-product', $plugin_admin_ui, 'add_product_regenerate_pdf_bulk_action' );
 		$this->loader->add_filter( 'bulk_actions-edit-deposit', $plugin_admin_ui, 'add_deposit_regenerate_archive_bulk_action' );
+		$this->loader->add_action( 'wp_ajax_refairplugin_get_all_insee_codes', $plugin_admin, 'refairplugin_get_all_insee_codes_exec' );		
 	}
 
 	/**
@@ -282,6 +283,7 @@ class Refairplugin {
 		$this->loader->add_action( 'pre_get_posts', $plugin_public, 'rewrite_product_query_for_sku' );
 		$this->loader->add_filter( 'request', $plugin_public, 'rebuild_request_form_sku' );
 		$this->loader->add_filter( 'get_sample_permalink_html', $plugin_public, 'get_sample_permalink_html_with_sku', 10, 5 );
+
 		// $this->loader->add_action( 'template_redirect', $plugin_public, 'sku_url_redirect' );
 
 		// $this->loader->add_action( 'posts_join', $plugin_public, 'posts_join_deposit', 10, 2 );
