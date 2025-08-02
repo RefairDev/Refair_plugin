@@ -259,7 +259,7 @@ class Refairplugin_UI_Customization {
 	}
 
 	/**
-	 * Filter Order ( Expression of interest ) 
+	 * Filter Order ( Expression of interest )
 	 *
 	 * @return void
 	 */
@@ -870,7 +870,7 @@ class Refairplugin_UI_Customization {
 		}return $r;
 	}
 
-	public function add_city_taxonomy_actions(){
+	public function add_city_taxonomy_actions() {
 
 		if ( ! isset( $_GET['post_type'] ) ||
 		'deposit' !== $_GET['post_type'] ||
@@ -910,9 +910,23 @@ class Refairplugin_UI_Customization {
 							})
 							.then((response) => response.json())
 							.then((data) => {
-								// setTimeout(() => {
-								// 	window.location.reload();
-								// }, 1000);
+								/* if data have WP_error fields, display error */
+								if ( data.hasOwnProperty('success') && ! data.success ) {
+									/* if data is an array concatenate every message in one string */
+									if ( Array.isArray( data.data ) ) {
+										let dataErrorStr = data.data.reduce( ( acc, elt, idx ) => {
+											return acc + elt.code +': ' + elt.message + ( idx < data.data.length - 1 ? '\n ' : '' );
+										},'');
+										alert( dataErrorStr );
+									} else {
+										alert( data.data.code + ': ' + data.data.message );
+									}
+								}
+								/* if data have WP_success fields, display success */
+								if ( data.hasOwnProperty('success') && data.success ) {	
+									alert( data.data.message );									
+								}
+								
 							})
 							.catch(function(error) {
 							});
