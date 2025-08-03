@@ -579,18 +579,38 @@ class Refairplugin_Admin {
 			)
 		);
 
+		error_log( 'Regenerating geometry meta for ' . count( $localities ) . ' localities' );
+
 		if ( is_wp_error( $localities ) || ( is_array( $localities ) && empty( $localities ) ) ) {
-			return new \WP_Error( 'no_localities', 'No localities found', array( 'status' => 404 ) );
+			wp_send_json_error( new \WP_Error( 'no_localities', 'No localities found', array( 'status' => 404 ) ) );
 		}
 
 		foreach ( $localities as $locality ) {
 
-			$insee_code = get_term_meta( $locality->term_id, 'insee_code', true );
+			error_log( 'Regenerating geometry meta for ' . $locality->name );
+
+			$geo_data = $this->get_geocode_from_google( $locality->name );
+
+			if ( is_wp_error( $geo_data ) ) {
+				wp_send_json_error( new \WP_Error( 'geocode_error', 'Failed to retrieve geocode data for locality: ' . $locality->name, array( 'status' => 500 ) ) );
+			}
+			if ( empty( $geo_data['results'] ) || ! isset( $geo_data['results'][0]['geometry']['location'] ) ) {
+				wp_send_json_error( new \WP_Error( 'no_geometry', 'No geometry found for locality: ' . $locality->name, array( 'status' => 404 ) ) );
+			}
+
+			error_log( 'Regenerating geometry ' . $locality->name . ': [lat:' . $geo_data['results'][0]['geometry']['location']['lat'] . ', lng' . $geo_data['results'][0]['geometry']['location']['lng'] . ']' );
+
+			$insee_code = $this->get_insee_code( $geo_data['results'][0]['geometry']['location'] );
+
+			$meta_rt = $this->update_city_term_insee_code_meta( $locality->term_id, $insee_code );
+			if ( is_wp_error( $meta_rt ) ) {
+				wp_send_json_error( $meta_rt );
+			}
 
 			$geometry = $this->get_locality_geometry( $insee_code );
 
 			if ( is_wp_error( $geometry ) ) {
-				return new \WP_Error( 'no_geometry', 'No geometry found for' . $insee_code, array( 'status' => 404 ) );
+				wp_send_json_error( new \WP_Error( 'no_geometry', 'No geometry found for' . $insee_code, array( 'status' => 404 ) ) );
 
 			}
 
@@ -598,16 +618,79 @@ class Refairplugin_Admin {
 
 			$centroid = $this->get_locality_centroid( $geometry );
 
+			$centroid_str = print_r( $centroid, true );
+
+			error_log( 'Regenerating geometry ' . $locality->name . ' centroid: ' . $centroid_str );
+
 			if ( is_wp_error( $centroid ) ) {
-				return new \WP_Error( 'no_centroid', 'No centroid found for' . $insee_code, array( 'status' => 404 ) );
+				wp_send_json_error( new \WP_Error( 'no_centroid', 'No centroid found for' . $insee_code, array( 'status' => 404 ) ) );
 
 			}
 
 			$meta_rt = $this->update_city_term_centroid_meta( $locality->term_id, $centroid );
 
 			if ( is_wp_error( $meta_rt ) ) {
-				return $meta_rt;
+				wp_send_json_error( $meta_rt );
 			}
+		}
+		wp_send_json_success(
+			array(
+				'message' => 'All localities geometry',
+				'status'  => 200,
+			),
+			200
+		);
+	}
+
+	private function get_insee_code( $location ) {
+		$lat = $location['lat'];
+		$lng = $location['lng'];
+		// Fetch INSEE code from IGN API using lat & lng
+		$rt_raw = wp_remote_get(
+			'https://apicarto.ign.fr/api/limites-administratives/commune?lat=' . $lat . '&lon=' . $lng,
+			array(
+				'timeout' => 10,
+			)
+		);
+		if ( is_wp_error( $rt_raw ) || 200 !== wp_remote_retrieve_response_code( $rt_raw ) ) {
+			return new \WP_Error( 'insee_code_error', 'Failed to retrieve INSEE code for location: [lat:' . $lat . ', lng:' . $lng . ']', array( 'status' => 500 ) );
+		}
+		$rt_body_json = wp_remote_retrieve_body( $rt_raw );
+		$rt           = json_decode( $rt_body_json, true );
+		if ( empty( $rt['features'] ) || ! isset( $rt['features'][0]['properties']['insee_com'] ) ) {
+			return new \WP_Error( 'insee_code_error', 'No INSEE code found for location: [lat:' . $lat . ', lng:' . $lng . ']', array( 'status' => 404 ) );
+		}
+		$insee_code = $rt['features'][0]['properties']['insee_com'] ?? false;
+		if ( empty( $insee_code ) || ! is_string( $insee_code ) || strlen( $insee_code ) !== 5 ) {
+			return new \WP_Error( 'insee_code_error', 'Invalid INSEE code found for location: [lat:' . $lat . ', lng:' . $lng . ']', array( 'status' => 400 ) );
+		}
+		return $insee_code;
+	}
+
+	private function get_geocode_from_google( $address ) {
+		$api_key  = get_option( 'google_api_key' ); // Replace with your Google Maps API key
+		$base_url = 'https://maps.googleapis.com/maps/api/geocode/json';
+
+		// Build the request URL
+		$url = $base_url . '?address=' . urlencode( $address ) . '&language=fr&key=' . $api_key;
+
+		// Make the HTTP request
+		$response = wp_remote_get( $url );
+
+		// Check for errors
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		// Parse the response
+		$body = wp_remote_retrieve_body( $response );
+		$data = json_decode( $body, true );
+
+		// Check for a valid response
+		if ( isset( $data['status'] ) && $data['status'] === 'OK' ) {
+			return $data;
+		} else {
+			return new \WP_Error( 'geocode_error', 'Failed to retrieve geocode data: ' . $data['error_message'], $data );
 		}
 	}
 
@@ -619,9 +702,12 @@ class Refairplugin_Admin {
 	 */
 	public function get_locality_geometry( $insee_code ) {
 
-		if ( empty( $insee_code ) ) {
-			return new \WP_Error( 'geometry_error', 'INSEE code is empty', array( 'status' => 400 ) );
+		// Check insee_code
+		if ( empty( $insee_code ) || ! is_string( $insee_code ) || strlen( $insee_code ) !== 5 ) {
+			return new \WP_Error( 'insee_code_error', 'Invalid INSEE code provided', array( 'status' => 400 ) );
 		}
+
+		// Fetch geometry from IGN API using lat & lng
 		$rt_raw = wp_remote_get(
 			'https://apicarto.ign.fr/api/cadastre/commune?code_insee=' . $insee_code,
 			array(
@@ -648,7 +734,6 @@ class Refairplugin_Admin {
 		}
 		$geometry = $this->invert_geometry_coordinates( $geometry );
 
-
 		return $this->update_city_term_meta( $locality_id, 'geometry', $geometry );
 	}
 
@@ -661,6 +746,15 @@ class Refairplugin_Admin {
 		return $this->update_city_term_meta( $locality_id, 'centroid', $centroid );
 	}
 
+	public function update_city_term_insee_code_meta( int $locality_id, $insee_code ) {
+
+		if ( empty( $insee_code ) || ! is_string( $insee_code ) || strlen( $insee_code ) !== 5 ) {
+			return new \WP_Error( 'insee_code_error', 'Invalid INSEE code provided for locality ID: ' . $locality_id, array( 'status' => 400 ) );
+		}
+		return $this->update_city_term_meta( $locality_id, 'insee_code', $insee_code );
+	}
+
+
 	/**
 	 * Undocumented function
 	 *
@@ -670,7 +764,7 @@ class Refairplugin_Admin {
 	 */
 	public function update_city_term_meta( int $locality_id, $meta_name, $meta_value ) {
 
-		$meta_rt        = false;
+		$meta_rt = false;
 
 		$term_meta = get_term_meta( $locality_id, $meta_name, true );
 		if ( empty( $term_meta ) ) {
@@ -736,7 +830,7 @@ class Refairplugin_Admin {
 			$exterior_ring = $polygon[0];
 
 			$r_exterior_ring = array_reverse( $exterior_ring );
-			$json_r_ex_ring = wp_json_encode( $r_exterior_ring );
+			$json_r_ex_ring  = wp_json_encode( $r_exterior_ring );
 
 			// Calculate polygon area and centroid
 			$polygon_area     = $this->calculate_polygon_area( $r_exterior_ring );
@@ -880,7 +974,7 @@ class Refairplugin_Admin {
 	 */
 	public function refairplugin_get_all_insee_codes_exec() {
 
-		$rt = wp_json_encode(
+		$rt   = wp_json_encode(
 			array(
 				'status'  => 'error',
 				'message' => __( 'Undefined error', 'refair-plugin' ),
@@ -906,13 +1000,13 @@ class Refairplugin_Admin {
 					}
 				}
 			}
-			$rt  = wp_json_encode(
+			$rt = wp_json_encode(
 				array(
 					'status'  => 'success',
 					'message' => __( 'INSEE codes updated for all deposits.', 'refair-plugin' ),
 				)
 			);
-		
+
 		} catch ( \Exception $e ) {
 			echo wp_json_encode(
 				array(
@@ -951,7 +1045,7 @@ class Refairplugin_Admin {
 			}
 		}
 		return $insee_code;
-	}	
+	}
 
 	/**
 	 * Propagate dismantle date meta of the deposit to linked products
