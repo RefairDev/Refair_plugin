@@ -1503,6 +1503,11 @@ class Refairplugin_Public {
 		return $found_posts;
 	}
 
+	/**
+	 * Set product permalink structure with SKU.
+	 *
+	 * @return void
+	 */
 	public function set_product_permastructure() {
 
 		$struct_permalinks = wc_get_permalink_structure();
@@ -1522,19 +1527,34 @@ class Refairplugin_Public {
 		flush_rewrite_rules();
 	}
 
-
+	/**
+	 * Set custom product permalink with SKU instead of post_name.
+	 *
+	 * @param  string  $permalink Current product permalink.
+	 * @param  WP_Post $post      Current product post object.
+	 * @param  boolean $leavename Leave name boolean.
+	 * @return void
+	 */
 	public function set_custom_product_permalink( $permalink, $post, $leavename ) {
 		if ( 'product' === $post->post_type ) {
-			$sku = get_post_meta( $post->ID, '_sku', true );
-
+			$sku       = get_post_meta( $post->ID, '_sku', true );
+			$sku       = urlencode( $sku );
 			$permalink = str_replace( $post->post_name, $sku, $permalink );
 		}
 		return $permalink;
 	}
+
+	/**
+	 * Rewrite product query to get product by its SKU.
+	 *
+	 * @param  [type] $query
+	 * @return void
+	 */
 	public function rewrite_product_query_for_sku( $query ) {
 		if ( $query->is_main_query() && array_key_exists( 'sku', $query->query_vars ) ) {
 				// We are using this SKU to find the product.
 				$sku = sanitize_text_field( $query->query_vars['sku'] );
+				$sku = urldecode( $sku );
 				$query->set( 'post_type', 'product' );
 				$query->set( 'is_single', true );
 				$query->set( 'is_home', false );
@@ -1571,6 +1591,7 @@ class Refairplugin_Public {
 		if ( isset( $query_vars['sku'] ) && ! empty( $query_vars['sku'] ) ) {
 			$sku = sanitize_text_field( $query_vars['sku'] );
 			if ( ! empty( $sku ) ) {
+				$sku         = urldecode( $sku );
 				$found_posts = get_posts(
 					array(
 						'post_type'  => 'product',
@@ -1600,11 +1621,10 @@ class Refairplugin_Public {
 		if ( 'product' === $post->post_type ) {
 			$sku = get_post_meta( $post_id, '_sku', true );
 			if ( ! empty( $sku ) ) {
+				$sku  = urlencode( $sku );
 				$html = str_replace( $post->post_name, $sku, $html );
 			}
 		}
 		return $html;
 	}
-
-
 }
