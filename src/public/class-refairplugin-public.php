@@ -1537,8 +1537,8 @@ class Refairplugin_Public {
 	 */
 	public function set_custom_product_permalink( $permalink, $post, $leavename ) {
 		if ( 'product' === $post->post_type ) {
-			$sku = get_post_meta( $post->ID, '_sku', true );
-			$sku = str_replace( ' ', '--', $sku );
+			$sku       = get_post_meta( $post->ID, '_sku', true );
+			$sku       = urlencode( $sku );
 			$permalink = str_replace( $post->post_name, $sku, $permalink );
 		}
 		return $permalink;
@@ -1554,7 +1554,7 @@ class Refairplugin_Public {
 		if ( $query->is_main_query() && array_key_exists( 'sku', $query->query_vars ) ) {
 				// We are using this SKU to find the product.
 				$sku = sanitize_text_field( $query->query_vars['sku'] );
-				$sku = str_replace( '--', ' ', $sku );
+				$sku = urldecode( $sku );
 				$query->set( 'post_type', 'product' );
 				$query->set( 'is_single', true );
 				$query->set( 'is_home', false );
@@ -1591,7 +1591,7 @@ class Refairplugin_Public {
 		if ( isset( $query_vars['sku'] ) && ! empty( $query_vars['sku'] ) ) {
 			$sku = sanitize_text_field( $query_vars['sku'] );
 			if ( ! empty( $sku ) ) {
-				$sku = str_replace( '--', ' ', $sku );
+				$sku         = urldecode( $sku );
 				$found_posts = get_posts(
 					array(
 						'post_type'  => 'product',
@@ -1621,7 +1621,7 @@ class Refairplugin_Public {
 		if ( 'product' === $post->post_type ) {
 			$sku = get_post_meta( $post_id, '_sku', true );
 			if ( ! empty( $sku ) ) {
-				$sku = str_replace( ' ', '--', $sku );
+				$sku  = urlencode( $sku );
 				$html = str_replace( $post->post_name, $sku, $html );
 			}
 		}
