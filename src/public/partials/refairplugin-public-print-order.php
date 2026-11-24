@@ -170,16 +170,16 @@ foreach ( $ordered_materials as $deposit_ref => $ordered_families ) {
 	?>
 		<h2><a href="<?php the_permalink( $deposit_obj[0] ); ?>"><?php echo $deposit_ref; ?></a></h2>
 		<table style="width:100%" >
-			<thead><tr><th>Ref Materiau</th><th>Famille</th><th>Catégorie</th><th>Designation</th><th>Qté</th><th>Disponibilité</th></tr></thead>
+			<thead><tr><th>Ref Materiau</th><th>Famille</th><th>Catégorie</th><th>Designation</th><th>Qté</th><th>Unité</th><th>Disponibilité</th></tr></thead>
 			<tbody>
 				<?php
 				foreach ( $ordered_families as $ordered_family ) {
 					?>
-				<tr><td colspan=6 class="fam-title"><?php echo $ordered_family['family']->name; ?></td></tr>
+				<tr><td colspan=7 class="fam-title"><?php echo $ordered_family['family']->name; ?></td></tr>
 					<?php
 					foreach ( $ordered_family['children'] as $ordered_category ) {
 						?>
-				<tr><td colspan=6 class="cat-title"><?php echo $ordered_category['category']->name; ?></td></tr>
+				<tr><td colspan=7 class="cat-title"><?php echo $ordered_category['category']->name; ?></td></tr>
 						<?php
 						foreach ( $ordered_category['children'] as $material ) {
 							?>
@@ -196,7 +196,7 @@ foreach ( $ordered_materials as $deposit_ref => $ordered_families ) {
 				<td class="category-cell"><?php echo $ordered_category['category']->name; ?></a></td>		
 				<td class="title-cell"><?php echo $material['cart_item']->get_name(); ?></td>
 				<td class="qty-cell"><?php echo $material['cart_item']->get_quantity(); ?></td>
-				<td class="unit-cell"><?php echo $material['cart_item']->get_quantity(); ?></td>
+				<td class="unit-cell"><?php echo $material_unit; ?></td>
 				<td class="availability-cell">
 							<?php
 							if ( $material['availability'] != false ) {

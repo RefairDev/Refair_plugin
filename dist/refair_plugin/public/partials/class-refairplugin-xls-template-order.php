@@ -102,7 +102,7 @@ class Refairplugin_Xls_Template_Order {
 			array(
 				'p'           => intval( $this->generator_inputs->get_id() ),
 				'post_type'   => $this->generator_inputs->get_post_type(),
-				'post_status' => array( 'any', 'wc-processing', 'wc-completed' ),
+				'post_status' => array( 'any', 'wc-processing', 'wc-completed', 'wc-on-hold' ),
 			)
 		);
 		if ( $query->have_posts() ) {

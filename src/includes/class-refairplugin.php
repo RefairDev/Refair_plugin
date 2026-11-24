@@ -240,6 +240,10 @@ class Refairplugin {
 		$plugin_public           = new Refairplugin_Public( $this->get_plugin_id(), $this->get_version() );
 		$plugin_document_manager = new Refairplugin_Documents_Manager();
 
+		$this->loader->add_action( 'wp_ajax_refair_export_orders', $plugin_document_manager, 'refair_export_orders' );
+		$this->loader->add_action( 'admin_post_refair_download_orders_export', $plugin_document_manager, 'refair_download_orders_export' );
+		$this->loader->add_action( 'refair_cleanup_orders_export', $plugin_document_manager, 'refair_cleanup_orders_export' );
+
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 		$this->loader->add_action( 'init', $plugin_public, 'build_custom_post_types' );
@@ -269,6 +273,10 @@ class Refairplugin {
 		$this->loader->add_filter( 'rest_deposit_collection_params', $plugin_public, 'add_params_in_rest_request', 10, 1 );
 		$this->loader->add_filter( 'rest_deposit_query', $plugin_public, 'order_rest_request_by_meta', 10, 2 );
 
+		$this->loader->add_filter( 'rest_city_collection_params', $plugin_public, 'add_deposit_type_param_in_city_rest_request', 10, 1 );
+		$this->loader->add_filter( 'rest_city_query', $plugin_public, 'filter_city_terms_by_deposit_type', 10, 2 );
+		$this->loader->add_filter( 'rest_prepare_city', $plugin_public, 'filter_city_term_count_by_deposit_type', 10, 3 );
+
 		$this->loader->add_filter( 'woocommerce_can_reduce_order_stock', $plugin_public, 'refair_do_not_reduce_onhold_stock', 10, 2 );
 		$this->loader->add_action( 'woocommerce_order_status_changed', $plugin_public, 'refair_order_stock_reduction_based_on_status', 20, 4 );
 		$this->loader->add_action( 'wp_ajax_woocommerce_ajax_add_to_cart', $plugin_public, 'woocommerce_ajax_add_to_cart' );
@@ -284,12 +292,18 @@ class Refairplugin {
 		$this->loader->add_filter( 'request', $plugin_public, 'rebuild_request_form_sku' );
 		$this->loader->add_filter( 'get_sample_permalink_html', $plugin_public, 'get_sample_permalink_html_with_sku', 10, 5 );
 
+		// Honeypot protection for WooCommerce registration
+		$this->loader->add_action( 'woocommerce_register_form', $plugin_public, 'add_registration_honeypot_field' );
+		$this->loader->add_filter( 'woocommerce_registration_errors', $plugin_public, 'validate_registration_honeypot', 10, 3 );
+		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_honeypot_styles' );
+
 		// $this->loader->add_action( 'template_redirect', $plugin_public, 'sku_url_redirect' );
 
 		// $this->loader->add_action( 'posts_join', $plugin_public, 'posts_join_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_fields', $plugin_public, 'posts_fields_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_where', $plugin_public, 'posts_where_deposit', 10, 2 );
 		// $this->loader->add_action( 'posts_orderby', $plugin_public, 'posts_orderby_deposit', 10, 2 );
+		$this->loader->add_action( 'user_register', $plugin_public, 'log_user_registration');
 	}
 
 

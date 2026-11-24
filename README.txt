@@ -38,6 +38,23 @@ Woocommerce: > 6.5.2
 2. Activate the plugin through the 'Plugins' menu in WordPress
 3. Set your API google key in refairplugin settings
 
+* Download all expressions of interest (classic WooCommerce orders list)
+Use the download button beside "Mettre à jour les sites". Users must have the
+edit_shop_orders capability. The export includes all registered business statuses,
+including cancelled and failed orders, regardless of filters or selected rows.
+Trash and technical drafts are excluded.
+The global ZIP contains the existing individual order ZIPs, unchanged. Missing
+ZIPs are generated using the individual download's PDF, spreadsheet and material
+sheets. Existing archives are not refreshed when an order has changed.
+Keep the page open while the progress counter advances. Failed orders are listed
+in rapport-export.txt inside the global ZIP; other orders continue to be exported.
+An unreadable existing ZIP is reported rather than overwritten. If all orders
+fail, only the report is downloaded.
+The download link remains available for retries until the export expires after
+24 hours. Global temporary files are removed by WP-Cron on expiry; individual
+order ZIPs are preserved. PHP's system temporary directory must be outside the
+WordPress/web directories and writable, with sufficient disk space.
+
 == Changelog ==
 
 = 0.6 - 24/03/2025 =

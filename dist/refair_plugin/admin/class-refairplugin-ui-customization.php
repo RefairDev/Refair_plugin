@@ -757,6 +757,66 @@ class Refairplugin_UI_Customization {
 				updateLinksSpinner.classList.add("update-links-orders-spinner","hidden"); 
 				ankle.insertBefore(updateLinksSpinner, before); 
 
+				<?php if ( current_user_can( 'edit_shop_orders' ) ) : ?>
+				const exportButton = document.createElement("button");
+				exportButton.type = "button";
+				exportButton.className = "button download-orders-archive";
+				exportButton.textContent = <?php echo wp_json_encode( __( "Télécharger toutes les manifestations d’intérêt", 'refair-plugin' ) ); ?>;
+				ankle.insertBefore(exportButton, before);
+				const exportStatus = document.createElement("span");
+				exportStatus.setAttribute("role", "status");
+				exportStatus.setAttribute("aria-live", "polite");
+				ankle.insertBefore(exportStatus, before);
+				const downloadLink = document.createElement("a");
+				downloadLink.textContent = <?php echo wp_json_encode( __( 'Télécharger le ZIP', 'refair-plugin' ) ); ?>;
+				downloadLink.hidden = true;
+				ankle.insertBefore(downloadLink, before);
+
+				exportButton.addEventListener("click", async function () {
+					exportButton.disabled = true;
+					downloadLink.hidden = true;
+					exportStatus.textContent = <?php echo wp_json_encode( __( 'Préparation… Gardez cette page ouverte.', 'refair-plugin' ) ); ?>;
+					let token = "";
+					try {
+						while (true) {
+							const body = new FormData();
+							body.append("action", "refair_export_orders");
+							body.append("nonce", <?php echo wp_json_encode( wp_create_nonce( 'refair_export_orders' ) ); ?>);
+							body.append("token", token);
+							const response = await fetch(<?php echo wp_json_encode( $ajax_url ); ?>, {
+								method: "POST",
+								credentials: "same-origin",
+								body: body
+							});
+							const result = await response.json();
+							if (!response.ok || !result.success) {
+								throw new Error(result.data && result.data.message ? result.data.message : <?php echo wp_json_encode( __( 'Échec de l’export. Vérifiez votre connexion et vos droits, puis réessayez.', 'refair-plugin' ) ); ?>);
+							}
+							const data = result.data;
+							if (data.empty) {
+								exportStatus.textContent = data.message;
+								break;
+							}
+							token = data.token;
+							exportStatus.textContent = `${data.processed}/${data.total} — ${data.included} ZIP, ${data.failed} échec(s). `;
+							if (data.ready) {
+								exportStatus.textContent += data.included === 0
+									? <?php echo wp_json_encode( __( 'Aucune archive exportée : consultez le rapport.', 'refair-plugin' ) ); ?>
+									: <?php echo wp_json_encode( __( 'Export terminé. Le rapport est inclus dans le ZIP.', 'refair-plugin' ) ); ?>;
+								downloadLink.href = data.download.replace(/&amp;/g, "&");
+								downloadLink.hidden = false;
+								downloadLink.click();
+								break;
+							}
+						}
+					} catch (error) {
+						exportStatus.textContent = <?php echo wp_json_encode( __( 'Export interrompu : ', 'refair-plugin' ) ); ?> + error.message;
+					} finally {
+						exportButton.disabled = false;
+					}
+				});
+				<?php endif; ?>
+
 				let updateLinks = document.querySelector(".update-links-orders");
 				updateLinks.addEventListener(
 					'click',
@@ -789,6 +849,10 @@ class Refairplugin_UI_Customization {
 			});
 		</script>
 		<style>
+
+			.download-orders-archive {
+				margin: -3px 5px 0;
+			}
 
 			.update-links-orders  {
 				padding: 4px 8px;

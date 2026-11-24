@@ -117,8 +117,8 @@ class Refairplugin_Pdf_Generator {
 		}
 
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			$mpdf_args['debug']                  = true;
-			$mpdf_args['allow_output_buffering'] = false;
+			$mpdf_args['debug']                  = false;
+			$mpdf_args['allow_output_buffering'] = true;
 		}
 
 		$this->mpdf = new \Mpdf\Mpdf( $mpdf_args );
@@ -197,6 +197,9 @@ class Refairplugin_Pdf_Generator {
 		$path     = '';
 		$filename = $this->generator_inputs->get_pdf_filename();
 
+		ob_start();
+		$previous_error_reporting = error_reporting( E_ERROR | E_PARSE );
+
 		try {
 			$stylesheet = $this->get_stylesheet_content();
 			$this->mpdf->WriteHTML( $stylesheet, \Mpdf\HTMLParserMode::HEADER_CSS );
@@ -215,7 +218,11 @@ class Refairplugin_Pdf_Generator {
 			$this->mpdf->Output( $path . $filename, $destination );
 		} catch ( \Mpdf\MpdfException $e ) {
 			error_log( 'MPDF generation error: ' . $e->getMessage() );
+		} finally {
+			error_reporting( $previous_error_reporting );
+			ob_end_clean();
 		}
+		error_log( 'built (' . $destination . '): ' . $path . $filename );
 		return array(
 			'path'      => $path,
 			'filename'  => $filename,
@@ -233,7 +240,7 @@ class Refairplugin_Pdf_Generator {
 			array(
 				'p'           => intval( $this->generator_inputs->get_id() ),
 				'post_type'   => $this->generator_inputs->get_post_type(),
-				'post_status' => array( 'any', 'wc-processing', 'wc-completed' ),
+				'post_status' => array( 'any', 'wc-processing', 'wc-completed','wc-on-hold' ),
 			)
 		);
 		$output = '';

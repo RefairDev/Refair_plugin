@@ -333,6 +333,99 @@ class Refairplugin_Public {
 	}
 
 	/**
+	 * Add deposit_type as a valid collection parameter for the city taxonomy REST endpoint.
+	 *
+	 * @param  array $params Actual authorized request parameters.
+	 * @return array New authorized request parameters.
+	 */
+	public function add_deposit_type_param_in_city_rest_request( $params ) {
+		$params['deposit_type'] = array(
+			'description' => __( 'Filter cities by deposit provider (deposit_type taxonomy term ID).', 'refairplugin' ),
+			'type'        => 'string',
+			'default'     => '',
+		);
+		return $params;
+	}
+
+	/**
+	 * Filter city terms by deposit_type: only return cities associated with deposits that have the given deposit_type.
+	 *
+	 * @param  array           $prepared_args Array of arguments for get_terms().
+	 * @param  WP_REST_Request $request       REST request received.
+	 * @return array Modified array of arguments for get_terms().
+	 */
+	public function filter_city_terms_by_deposit_type( $prepared_args, $request ) {
+		$deposit_type = $request->get_param( 'deposit_type' );
+
+		if ( ! empty( $deposit_type ) ) {
+			$deposit_ids = get_posts(
+				array(
+					'post_type'      => 'deposit',
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+					'tax_query'      => array(
+						array(
+							'taxonomy' => 'deposit_type',
+							'terms'    => absint( $deposit_type ),
+						),
+					),
+				)
+			);
+
+			if ( ! empty( $deposit_ids ) ) {
+				$prepared_args['object_ids'] = $deposit_ids;
+			} else {
+				// No deposits match: force empty result.
+				$prepared_args['object_ids'] = array( 0 );
+			}
+		}
+
+		return $prepared_args;
+	}
+
+	/**
+	 * Override the count field for city terms when filtering by deposit_type.
+	 * Recalculates count as the number of deposits that belong to both the city and the given deposit_type.
+	 *
+	 * @param  WP_REST_Response $response The response object.
+	 * @param  WP_Term          $item     The original term object.
+	 * @param  WP_REST_Request  $request  The request object.
+	 * @return WP_REST_Response Modified response.
+	 */
+	public function filter_city_term_count_by_deposit_type( $response, $item, $request ) {
+		$deposit_type = $request->get_param( 'deposit_type' );
+
+		if ( ! empty( $deposit_type ) ) {
+			$count = count(
+				get_posts(
+					array(
+						'post_type'      => 'deposit',
+						'posts_per_page' => -1,
+						'fields'         => 'ids',
+						'tax_query'      => array(
+							'relation' => 'AND',
+							array(
+								'taxonomy' => 'city',
+								'terms'    => $item->term_id,
+							),
+							array(
+								'taxonomy' => 'deposit_type',
+								'terms'    => absint( $deposit_type ),
+							),
+						),
+					)
+				)
+			);
+
+			$data          = $response->get_data();
+			$data['count'] = $count;
+			$response->set_data( $data );
+		}
+
+		return $response;
+	}
+
+	/**
 	 * Add post-meta-fields in Rest request response filled with return of get_post_meta_for_api function.
 	 *
 	 * @return void
@@ -1472,7 +1565,7 @@ class Refairplugin_Public {
 
 			$dep_orders = array_diff( $dep_orders, array( $order_id ) );
 
-			update_post_meta( $dep_obj->ID, 'refair_orders', $dep_orders );
+			update_post_meta( $deposit_id, 'refair_orders', $dep_orders );
 		}
 	}
 
@@ -1591,19 +1684,27 @@ class Refairplugin_Public {
 		if ( isset( $query_vars['sku'] ) && ! empty( $query_vars['sku'] ) ) {
 			$sku = sanitize_text_field( $query_vars['sku'] );
 			if ( ! empty( $sku ) ) {
-				$sku         = urldecode( $sku );
-				$found_posts = get_posts(
-					array(
-						'post_type'  => 'product',
-						'meta_query' => array(
-							array(
-								'key'     => '_sku',
-								'value'   => $sku,
-								'compare' => '=',
-							),
+				$sku = urldecode( $sku );
+
+				$query_args = array(
+					'post_type'   => 'product',
+					'post_status' => array( 'publish' ),
+					'meta_query'  => array(
+						array(
+							'key'     => '_sku',
+							'value'   => $sku,
+							'compare' => '=',
 						),
-					)
+					),
 				);
+
+				/* check if we are logged */
+				if ( is_user_logged_in() ) {
+					// If not logged we redirect to home page.
+					$query_args['post_status'] = array( 'publish', 'draft' );
+				}
+
+				$found_posts = get_posts( $query_args );
 				if ( ! empty( $found_posts ) && is_array( $found_posts ) && count( $found_posts ) > 0 ) {
 					$query_vars['post_type'] = 'product';
 					$query_vars['p']         = $found_posts[0]->ID;
@@ -1626,5 +1727,90 @@ class Refairplugin_Public {
 			}
 		}
 		return $html;
+	}
+
+	/**
+	 * Add honeypot field to WooCommerce registration form.
+	 *
+	 * @since    1.0.0
+	 * @return void
+	 */
+	public function add_registration_honeypot_field() {
+		?>
+		<p class="form-row form-row-wide" style="position: absolute; left: -9999px; opacity: 0; pointer-events: none;" aria-hidden="true">
+			<label for="reg_website"><?php esc_html_e( 'Website', 'refair-plugin' ); ?></label>
+			<input type="text" class="input-text" name="website_url" id="reg_website" value="" autocomplete="off" tabindex="-1" />
+		</p>
+		<?php
+		// Add a timestamp field
+		$timestamp = time();
+		?>
+		<input type="hidden" name="registration_timestamp" value="<?php echo esc_attr( $timestamp ); ?>" />
+		<?php
+	}
+
+	/**
+	 * Validate honeypot field on WooCommerce registration.
+	 *
+	 * @since    1.0.0
+	 * @param WP_Error $errors Validation errors object.
+	 * @param string   $username Username.
+	 * @param string   $email User email.
+	 * @return WP_Error
+	 */
+	public function validate_registration_honeypot( $errors, $username, $email ) {
+		// Check if honeypot field is filled (it should be empty)
+		if ( ! empty( $_POST['website_url'] ) ) {
+			$errors->add( 'spam_detected', __( 'Registration failed. Please try again.', 'refair-plugin' ) );
+			// Log the spam attempt
+			error_log( 'Honeypot spam detected on registration form - IP: ' . $_SERVER['REMOTE_ADDR'] );
+		}
+
+		// Check timestamp to prevent too fast submissions (less than 3 seconds)
+		if ( isset( $_POST['registration_timestamp'] ) ) {
+			$timestamp = intval( $_POST['registration_timestamp'] );
+			$time_elapsed = time() - $timestamp;
+			
+			if ( $time_elapsed < 3 ) {
+				$errors->add( 'too_fast', __( 'Registration failed. Please try again.', 'refair-plugin' ) );
+				error_log( 'Too fast registration attempt detected - IP: ' . $_SERVER['REMOTE_ADDR'] );
+			}
+		}
+
+		return $errors;
+	}
+
+	/**
+	 * Enqueue custom CSS for honeypot field.
+	 *
+	 * @since    1.0.0
+	 * @return void
+	 */
+	public function enqueue_honeypot_styles() {
+		if ( function_exists( 'is_account_page' ) && is_account_page() ) {
+			$custom_css = "
+				.woocommerce-form-register p[aria-hidden='true'] {
+					position: absolute !important;
+					left: -9999px !important;
+					opacity: 0 !important;
+					pointer-events: none !important;
+					height: 0 !important;
+					overflow: hidden !important;
+				}
+			";
+			wp_add_inline_style( 'woocommerce-general', $custom_css );
+		}
+	}
+
+	/**
+	 * Log user registration details.
+	 *
+	 * @since    1.0.0
+	 * @param int $user_id ID of the newly registered user.
+	 * @return void
+	 */
+	public function log_user_registration( $user_id ) {
+		$user_info = get_userdata( $user_id );
+		error_log( 'New user registration: ID=' . $user_id . ', Username=' . $user_info->user_login . ', Email=' . $user_info->user_email . ', IP=' . $_SERVER['REMOTE_ADDR'] . ', UA=' . $_SERVER['HTTP_USER_AGENT'] . ', REFERER='. $_SERVER['HTTP_REFERER'] );
 	}
 }

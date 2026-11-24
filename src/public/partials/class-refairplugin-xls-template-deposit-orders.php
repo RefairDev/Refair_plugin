@@ -249,9 +249,9 @@ class Refairplugin_Xls_Template_Deposit_Orders {
 							$deposit_ref = 'N\D';
 						}
 
-						$aws->setCellValue( 'B' . strval( $current_line ), $material['order']->id );
-						$aws->setCellValue( 'C' . strval( $current_line ), $material['order']->data['billing']['first_name'] . ' ' . $material['order']->data['billing']['last_name'] );
-						$aws->setCellValue( 'D' . strval( $current_line ), $material['order']->data['billing']['email'] . ' - ' . $material['order']->data['billing']['phone'] );
+						$aws->setCellValue( 'B' . strval( $current_line ), $material['order']->get_id() );
+						$aws->setCellValue( 'C' . strval( $current_line ), $material['order']->get_billing_first_name() . ' ' . $material['order']->get_billing_last_name() );
+						$aws->setCellValue( 'D' . strval( $current_line ), $material['order']->get_billing_email() . ' - ' . $material['order']->get_billing_phone() );
 						$aws->setCellValue( 'E' . strval( $current_line ), $date );
 						$aws->setCellValue( 'F' . strval( $current_line ), $deposit_ref );
 						$aws->setCellValue( 'G' . strval( $current_line ), $material['product']->get_sku() );

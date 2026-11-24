@@ -130,9 +130,16 @@ class Refairplugin_Utils {
 	 * Create filename and paths for expression of interest zip archive generation.
 	 *
 	 * @param  int $m_id Id of the expression of interest whom archive is to zip.
-	 * @return array Array of paths and filename informations.
+	 * @return array|false Array of paths and filename informations, false if the product doesn't exist.
 	 */
 	public static function refair_build_material_filename_data( $m_id ) {
+
+		$product = wc_get_product( $m_id );
+
+		if ( false === $product ) {
+			error_log( 'Refairplugin_Utils::refair_build_material_filename_data: no product found for id ' . $m_id );
+			return false;
+		}
 
 		$material_path = str_replace( '\\', '/', wp_upload_dir()['basedir'] . '/materials/' . strval( $m_id ) . '/' );
 
@@ -142,7 +149,7 @@ class Refairplugin_Utils {
 			'public_type_name'   => __( 'Material', 'refair-plugin' ),
 			'folder_name'        => 'materials',
 			'template_part_name' => 'material',
-			'reference'          => wc_get_product( $m_id )->get_sku(),
+			'reference'          => $product->get_sku(),
 		);
 
 		$inputs                  = new Refairplugin_Files_Generator_Input( $args );

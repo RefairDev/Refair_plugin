@@ -495,9 +495,33 @@ class Refairplugin_Documents_Manager {
 	 *
 	 * @param  array $zip_filename_data data used to zip files.
 	 * @param  array $files_to_zip list of filespath to zip.
+	 * @param  bool  $strict Throw on incomplete archives instead of using legacy error handling.
 	 * @return boolean Returned status true on success false on error.
 	 */
-	public static function refair_zip_files( $zip_filename_data, $files_to_zip ) {
+	public static function refair_zip_files( $zip_filename_data, $files_to_zip, $strict = false ) {
+
+		if ( $strict ) {
+			$zip = new ZipArchive();
+			if ( true !== $zip->open( $zip_filename_data['full_path'], ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
+				throw new RuntimeException( __( 'Impossible de créer le ZIP individuel.', 'refair-plugin' ) );
+			}
+			try {
+				foreach ( $files_to_zip as $file ) {
+					if ( ! is_readable( $file['path_name'] ) || ! $zip->addFile( $file['path_name'], $file['filename'] ) ) {
+						throw new RuntimeException( __( 'Fichier absent ou illisible : ', 'refair-plugin' ) . $file['filename'] );
+					}
+				}
+			} catch ( Throwable $error ) {
+				$zip->close();
+				wp_delete_file( $zip_filename_data['full_path'] );
+				throw $error;
+			}
+			if ( ! $zip->close() ) {
+				wp_delete_file( $zip_filename_data['full_path'] );
+				throw new RuntimeException( __( 'Impossible de finaliser le ZIP individuel.', 'refair-plugin' ) );
+			}
+			return true;
+		}
 
 		$zip    = new ZipArchive();
 		$status = true;
@@ -547,9 +571,10 @@ class Refairplugin_Documents_Manager {
 	 * Build archive of specific expression of interest accordinf to order parameter.
 	 *
 	 * @param  WC_Order $order Expression of interest object.
+	 * @param  bool     $strict Reject missing material sheets and ZIP failures.
 	 * @return mixed return zip filename on success or false on error.
 	 */
-	protected function refair_build_expression_of_interest_archive( $order ) {
+	protected function refair_build_expression_of_interest_archive( $order, $strict = false ) {
 
 		$zip_filename_data = array(
 			'path'      => '',
@@ -599,7 +624,16 @@ class Refairplugin_Documents_Manager {
 		foreach ( $materials as $material ) {
 			$m_id                   = $material->get_product_id();
 			$material_filename_data = \Refairplugin\Refairplugin_Utils::refair_build_material_filename_data( $m_id );
-			$files_to_zip []        = array(
+
+			if ( false === $material_filename_data ) {
+				error_log( 'Refairplugin_Documents_Manager::refair_build_expression_of_interest_archive: skipped item with invalid product id ' . $m_id . ' for order ' . $order->get_id() );
+				if ( $strict ) {
+					throw new RuntimeException( __( 'Produit introuvable : ', 'refair-plugin' ) . $m_id );
+				}
+				continue;
+			}
+
+			$files_to_zip [] = array(
 				'path_name' => $material_filename_data['full_path'],
 				'filename'  => $material_filename_data['filename'],
 			);
@@ -607,12 +641,288 @@ class Refairplugin_Documents_Manager {
 
 		$zip_filename_data = $this->refair_build_expression_of_interest_archive_filename_data( $order->get_id() );
 
-		$status = $this->refair_zip_files( $zip_filename_data, $files_to_zip );
+		$status = $this->refair_zip_files( $zip_filename_data, $files_to_zip, $strict );
 
 		if ( ! $status ) {
 			return $status;
 		}
 		return $zip_filename_data;
+	}
+
+	/**
+	 * Start or advance an authenticated export. Only server-side state contains paths.
+	 */
+	public function refair_export_orders() {
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Accès refusé.', 'refair-plugin' ) ), 403 );
+		}
+		check_ajax_referer( 'refair_export_orders', 'nonce' );
+
+		$token = isset( $_POST['token'] ) && is_string( $_POST['token'] ) ? sanitize_text_field( wp_unslash( $_POST['token'] ) ) : '';
+		$lock  = false;
+		$zip   = null;
+		try {
+			if ( '' === $token ) {
+				if ( ! class_exists( 'ZipArchive' ) ) {
+					throw new RuntimeException( __( 'L’extension PHP ZIP est indisponible.', 'refair-plugin' ) );
+				}
+				$statuses = array_diff( array_keys( wc_get_order_statuses() ), array( 'wc-checkout-draft', 'wc-auto-draft', 'wc-trash' ) );
+				$ids = wc_get_orders(
+					array(
+						'type'    => 'shop_order',
+						'status'  => array_values( $statuses ),
+						'limit'   => -1,
+						'return'  => 'ids',
+						'orderby' => 'ID',
+						'order'   => 'ASC',
+					)
+				);
+				if ( empty( $ids ) ) {
+					wp_send_json_success( array( 'empty' => true, 'message' => __( 'Aucune manifestation d’intérêt à exporter.', 'refair-plugin' ) ) );
+				}
+				$token = wp_generate_password( 32, false, false );
+				$path  = trailingslashit( sys_get_temp_dir() ) . 'refair-export-' . $token;
+				$real_temp = wp_normalize_path( realpath( sys_get_temp_dir() ) );
+				$web_roots = array( ABSPATH, WP_CONTENT_DIR );
+				if ( ! empty( $_SERVER['DOCUMENT_ROOT'] ) ) {
+					$web_roots[] = $_SERVER['DOCUMENT_ROOT'];
+				}
+				foreach ( $web_roots as $web_root ) {
+					$resolved = realpath( $web_root );
+					if ( false === $resolved ) {
+						throw new RuntimeException( __( 'Impossible de vérifier les dossiers Web.', 'refair-plugin' ) );
+					}
+					$real_root = trailingslashit( wp_normalize_path( $resolved ) );
+					if ( 0 === stripos( trailingslashit( $real_temp ), $real_root ) ) {
+						throw new RuntimeException( __( 'Le dossier temporaire PHP doit être hors des dossiers Web.', 'refair-plugin' ) );
+					}
+				}
+				if ( ! mkdir( $path, 0700 ) ) {
+					throw new RuntimeException( __( 'Impossible de créer le dossier temporaire.', 'refair-plugin' ) );
+				}
+				$state = array(
+					'owner'    => get_current_user_id(),
+					'path'     => $path,
+					'ids'      => array_values( $ids ),
+					'position' => 0,
+					'included' => 0,
+					'errors'   => array(),
+					'ready'    => false,
+					'expires'  => time() + DAY_IN_SECONDS,
+				);
+				if ( ! add_option( 'refair_export_' . $token, $state, '', false ) ) {
+					rmdir( $path );
+					throw new RuntimeException( __( 'Impossible d’enregistrer l’export.', 'refair-plugin' ) );
+				}
+				$scheduled = wp_schedule_single_event( $state['expires'], 'refair_cleanup_orders_export', array( $token ), true );
+				if ( is_wp_error( $scheduled ) || false === $scheduled ) {
+					throw new RuntimeException( __( 'Impossible de planifier le nettoyage de l’export.', 'refair-plugin' ) );
+				}
+			}
+			$state = $this->refair_get_export_state( $token );
+			$lock  = $this->refair_lock_export( $state );
+			wp_cache_delete( 'refair_export_' . $token, 'options' );
+			$state = $this->refair_get_export_state( $token );
+			if ( ! $state['ready'] ) {
+				$zip = new ZipArchive();
+				if ( true !== $zip->open( $state['path'] . '/orders.zip', ZipArchive::CREATE ) ) {
+					$zip = null;
+					throw new RuntimeException( __( 'Impossible d’ouvrir le ZIP global.', 'refair-plugin' ) );
+				}
+				$processed = 0;
+				$generated = false;
+				while ( $state['position'] < count( $state['ids'] ) && $processed < 10 && ! $generated ) {
+					$id = $state['ids'][ $state['position'] ];
+					try {
+						$data = $this->refair_build_expression_of_interest_archive_filename_data( $id );
+						if ( ! file_exists( $data['full_path'] ) ) {
+							$generated = true;
+							$order = wc_get_order( $id );
+							if ( ! $order ) {
+								throw new RuntimeException( __( 'Commande introuvable.', 'refair-plugin' ) );
+							}
+							$data = $this->refair_build_expression_of_interest_archive( $order, true );
+							if ( false === $data ) {
+								throw new RuntimeException( __( 'Échec de génération du ZIP individuel.', 'refair-plugin' ) );
+							}
+						}
+						$individual = new ZipArchive();
+						if ( ! is_readable( $data['full_path'] ) || true !== $individual->open( $data['full_path'], ZipArchive::CHECKCONS ) ) {
+							throw new RuntimeException( __( 'ZIP individuel illisible ou invalide.', 'refair-plugin' ) );
+						}
+						$individual->close();
+					} catch ( Throwable $error ) {
+						$state['errors'][] = 'Commande ' . $id . ' : ' . $error->getMessage();
+						error_log( 'REFAIR export: ' . end( $state['errors'] ) );
+						++$state['position'];
+						++$processed;
+						continue;
+					}
+					if ( ! $zip->addFile( $data['full_path'], $data['filename'] ) ) {
+						throw new RuntimeException( __( 'Impossible d’ajouter une archive au ZIP global.', 'refair-plugin' ) );
+					}
+					if ( ! $zip->setCompressionName( $data['filename'], ZipArchive::CM_STORE ) ) {
+						throw new RuntimeException( __( 'Impossible de configurer le ZIP global.', 'refair-plugin' ) );
+					}
+					++$state['included'];
+					++$state['position'];
+					++$processed;
+				}
+				$state['ready'] = $state['position'] === count( $state['ids'] );
+				$report = sprintf( "Commandes : %d\nArchives incluses : %d\nEchecs : %d\n\n", count( $state['ids'] ), $state['included'], count( $state['errors'] ) );
+				$report .= implode( "\n", $state['errors'] );
+				if ( ! $zip->addFromString( 'rapport-export.txt', $report ) ) {
+					throw new RuntimeException( __( 'Impossible d’ajouter le rapport au ZIP global.', 'refair-plugin' ) );
+				}
+				$closing_zip = $zip;
+				$zip = null;
+				$closed = $closing_zip->close();
+				if ( ! $closed ) {
+					throw new RuntimeException( __( 'Impossible de finaliser le ZIP global (vérifiez l’espace disque).', 'refair-plugin' ) );
+				}
+				if ( ! update_option( 'refair_export_' . $token, $state, false ) ) {
+					throw new RuntimeException( __( 'Impossible de sauvegarder la progression.', 'refair-plugin' ) );
+				}
+			}
+			flock( $lock, LOCK_UN );
+			fclose( $lock );
+			$lock = false;
+			wp_send_json_success(
+				array(
+					'token'     => $token,
+					'processed' => $state['position'],
+					'total'     => count( $state['ids'] ),
+					'included'  => $state['included'],
+					'failed'    => count( $state['errors'] ),
+					'ready'     => $state['ready'],
+					'download'  => $state['ready'] ? wp_nonce_url( add_query_arg( array( 'action' => 'refair_download_orders_export', 'token' => $token ), admin_url( 'admin-post.php' ) ), 'refair_download_orders_' . $token ) : '',
+				)
+			);
+		} catch ( Throwable $error ) {
+			if ( $zip instanceof ZipArchive ) {
+				$zip->close();
+			}
+			if ( is_resource( $lock ) ) {
+				flock( $lock, LOCK_UN );
+				fclose( $lock );
+				$this->refair_cleanup_orders_export( $token );
+			} elseif ( isset( $scheduled ) && ( is_wp_error( $scheduled ) || false === $scheduled ) ) {
+				$this->refair_cleanup_orders_export( $token );
+			}
+			error_log( 'REFAIR export: ' . $error->getMessage() );
+			wp_send_json_error( array( 'message' => $error->getMessage() ), 500 );
+		}
+	}
+
+	/** Validate ownership before opening any export file. */
+	protected function refair_get_export_state( $token ) {
+		if ( ! preg_match( '/^[a-zA-Z0-9]{32}$/D', $token ) ) {
+			throw new RuntimeException( __( 'Identifiant d’export invalide.', 'refair-plugin' ) );
+		}
+		$state = get_option( 'refair_export_' . $token );
+		if ( ! is_array( $state ) || get_current_user_id() !== $state['owner'] || time() >= $state['expires'] ) {
+			throw new RuntimeException( __( 'Export indisponible ou expiré.', 'refair-plugin' ) );
+		}
+		return $state;
+	}
+
+	/** A file lock also protects against duplicate browser requests. */
+	protected function refair_lock_export( $state ) {
+		$lock = fopen( $state['path'] . '/export.lock', 'c' );
+		if ( false === $lock ) {
+			throw new RuntimeException( __( 'Impossible de verrouiller l’export.', 'refair-plugin' ) );
+		}
+		if ( ! flock( $lock, LOCK_EX | LOCK_NB ) ) {
+			fclose( $lock );
+			throw new RuntimeException( __( 'Cet export est déjà en cours de traitement.', 'refair-plugin' ) );
+		}
+		return $lock;
+	}
+
+	/** Stream only completed exports through authenticated administration. */
+	public function refair_download_orders_export() {
+		if ( ! current_user_can( 'edit_shop_orders' ) ) {
+			wp_die( esc_html__( 'Accès refusé.', 'refair-plugin' ), '', array( 'response' => 403 ) );
+		}
+		$token = isset( $_GET['token'] ) && is_string( $_GET['token'] ) ? sanitize_text_field( wp_unslash( $_GET['token'] ) ) : '';
+		check_admin_referer( 'refair_download_orders_' . $token );
+		$lock = false;
+		try {
+			$state = $this->refair_get_export_state( $token );
+			$lock = $this->refair_lock_export( $state );
+			wp_cache_delete( 'refair_export_' . $token, 'options' );
+			$state = $this->refair_get_export_state( $token );
+			if ( ! $state['ready'] ) {
+				throw new RuntimeException( __( 'L’export n’est pas terminé.', 'refair-plugin' ) );
+			}
+			$handle = fopen( $state['path'] . '/orders.zip', 'rb' );
+			if ( false === $handle ) {
+				throw new RuntimeException( __( 'Le ZIP global est indisponible.', 'refair-plugin' ) );
+			}
+			while ( ob_get_level() > 0 ) {
+				if ( ! ob_end_clean() ) {
+					fclose( $handle );
+					throw new RuntimeException( __( 'Impossible de préparer le téléchargement.', 'refair-plugin' ) );
+				}
+			}
+			nocache_headers();
+			header( 'Content-Type: application/zip' );
+			header( 'Content-Disposition: attachment; filename="manifestations-interet.zip"' );
+			header( 'Content-Length: ' . filesize( $state['path'] . '/orders.zip' ) );
+			$result = fpassthru( $handle );
+			fclose( $handle );
+			flock( $lock, LOCK_UN );
+			fclose( $lock );
+			if ( false === $result ) {
+				error_log( 'REFAIR export: echec de transmission du ZIP global.' );
+			}
+			// Keep the export until expiry so an interrupted download can be retried.
+			exit;
+		} catch ( Throwable $error ) {
+			if ( is_resource( $lock ) ) {
+				flock( $lock, LOCK_UN );
+				fclose( $lock );
+			}
+			error_log( 'REFAIR export download: ' . $error->getMessage() );
+			wp_die( esc_html( $error->getMessage() ), '', array( 'response' => 400 ) );
+		}
+	}
+
+	/** Delete only files created by this export, never individual order archives. */
+	public function refair_cleanup_orders_export( $token ) {
+		if ( ! is_string( $token ) || ! preg_match( '/^[a-zA-Z0-9]{32}$/D', $token ) ) {
+			error_log( 'REFAIR export: identifiant de nettoyage invalide.' );
+			return;
+		}
+		$state = get_option( 'refair_export_' . $token );
+		if ( ! is_array( $state ) ) {
+			return;
+		}
+		if ( ! is_dir( $state['path'] ) ) {
+			delete_option( 'refair_export_' . $token );
+			wp_clear_scheduled_hook( 'refair_cleanup_orders_export', array( $token ) );
+			return;
+		}
+		try {
+			$lock = $this->refair_lock_export( $state );
+		} catch ( RuntimeException $error ) {
+			error_log( 'REFAIR export cleanup: ' . $error->getMessage() );
+			wp_schedule_single_event( time() + 300, 'refair_cleanup_orders_export', array( $token ) );
+			return;
+		}
+		if ( file_exists( $state['path'] . '/orders.zip' ) ) {
+			wp_delete_file( $state['path'] . '/orders.zip' );
+		}
+		flock( $lock, LOCK_UN );
+		fclose( $lock );
+		wp_delete_file( $state['path'] . '/export.lock' );
+		if ( ! rmdir( $state['path'] ) ) {
+			error_log( 'REFAIR export: nettoyage du dossier temporaire impossible.' );
+			wp_schedule_single_event( time() + 300, 'refair_cleanup_orders_export', array( $token ) );
+			return;
+		}
+		delete_option( 'refair_export_' . $token );
+		wp_clear_scheduled_hook( 'refair_cleanup_orders_export', array( $token ) );
 	}
 
 	/**
